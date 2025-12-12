@@ -46,6 +46,8 @@ int Lev_Distance(char* str1, char* str2){
 }
 
 //  C:\Users\Gabriel\Downloads\games.txt
+
+
 //  C:\Users\Gabriel\OneDrive\Desktop\Test
 
 void toLowerString(char* str){
@@ -90,7 +92,7 @@ int search_repo(char* game_name, char* dest_path){
         if (dist <= threshold) {
             if(dist < bestDist){
                 bestDist = dist;
-                strcpy(bestmatch,game_name);
+                strcpy(bestmatch,entry->d_name);
             }
         }
     }
@@ -109,19 +111,19 @@ int search_repo(char* game_name, char* dest_path){
 
 int main() {
 
-    // 1. Take in requested games list
-    printf("What is the filepath to the client text file? ");
-    char client_list_path[256];
-    fgets(client_list_path, 256, stdin);
-    client_list_path[strcspn(client_list_path, "\n")] = 0; 
+    // // 1. Take in requested games list
+    // printf("What is the filepath to the client text file? ");
+    // char client_list_path[256];
+    // fgets(client_list_path, 256, stdin);
+    // client_list_path[strcspn(client_list_path, "\n")] = 0; 
 
-    //2. Get destination location
-    printf("What is the Destination Filepath?\n");
+    //1. Get destination location
+    printf("What is the Destination Filepath? ");
     char dest_Path[256];
     fgets(dest_Path,256,stdin);
     dest_Path[strcspn(dest_Path, "\n")] = 0;
     
-    FILE *client_list_file = fopen(client_list_path, "r");
+    FILE *client_list_file = fopen("C:\\Users\\Gabriel\\Downloads\\games.txt", "r");
 
     if (client_list_file == NULL) {
         printf("File could not be opened.\n"); 

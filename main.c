@@ -46,6 +46,7 @@ int Lev_Distance(char* str1, char* str2){
 }
 
 //  C:\Users\Gabriel\Downloads\games.txt
+//  C:\Users\Gabriel\OneDrive\Desktop\Test
 
 void toLowerString(char* str){
     for(int i = 0; str[i]; i++){
@@ -53,7 +54,7 @@ void toLowerString(char* str){
     }
 }
 
-int search_repo(char* game_name){
+int search_repo(char* game_name, char* dest_path){
     
     //init game repo directory
     DIR *game_repo;
@@ -85,7 +86,7 @@ int search_repo(char* game_name){
         if (threshold < 3) threshold = 3;
 
         
-
+        //loop and save best distance
         if (dist <= threshold) {
             if(dist < bestDist){
                 bestDist = dist;
@@ -94,12 +95,13 @@ int search_repo(char* game_name){
         }
     }
 
-    
     if(bestDist < 999){
         printf("The best distance for %s was %s at %d\n",game_name,bestmatch,bestDist);
-        char dest_Path[256];
-        fgets(dest_Path,256,stdin);
-        dest_Path[strcspn(dest_Path, "\n")] = 0; 
+
+        char command[512];
+        sprintf(command, "robocopy \"E:\\%s\" \"%s\\%s\" /E", bestmatch, dest_path, bestmatch);
+        printf("Executing: %s\n", command);
+        system(command);
     }
     else printf("%s had no valid match\n",game_name);
     
@@ -108,11 +110,16 @@ int search_repo(char* game_name){
 int main() {
 
     // 1. Take in requested games list
-    printf("What is the filepath to the client text file? "); 
-
+    printf("What is the filepath to the client text file? ");
     char client_list_path[256];
     fgets(client_list_path, 256, stdin);
     client_list_path[strcspn(client_list_path, "\n")] = 0; 
+
+    //2. Get destination location
+    printf("What is the Destination Filepath?\n");
+    char dest_Path[256];
+    fgets(dest_Path,256,stdin);
+    dest_Path[strcspn(dest_Path, "\n")] = 0;
     
     FILE *client_list_file = fopen(client_list_path, "r");
 
@@ -127,7 +134,7 @@ int main() {
 
 
         while (fgets(line_buffer, 256, client_list_file) != NULL) {
-            search_repo(line_buffer);
+            search_repo(line_buffer,dest_Path);
         }
         
         fclose(client_list_file); 

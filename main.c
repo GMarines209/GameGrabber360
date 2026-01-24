@@ -2,12 +2,47 @@
 #include <stdlib.h>
 #include <string.h>
 #include <dirent.h>
+#include <windows.h>
 #include <ctype.h>
 
 #define MIN(x, y, z) ((x) < (y) ? ((x) < (z) ? (x) : (z)) : ((y) < (z) ? (y) : (z)))
+int transferred,skipped,total;
+FILE* skipped_games;
 
-int moveFolder(){
+struct game_match
+{
+    char dir_name[256];
+    int lev_distance;
+    char* source_path;
+    float confidence;
+}game_match;
 
+
+void moveFolder(char* game_name,char* bestMatch,char* dest_path,char dry_run){
+    
+    char* flags = "/E /NFL /NDL /NJH /NJS /nc /ns /np";
+
+    if(dry_run == 'y'){
+        flags = "/E /NFL /NDL /NJH /NJS /nc /ns /np /L";     //the /L flag is used for dry running
+    }
+
+    printf("Transfering: %s...",game_name);
+    fflush(stdout);
+
+    char command[512];
+    sprintf(command, "robocopy \"E:\\%s\" \"%s\\%s\" %s", bestMatch, dest_path, bestMatch,flags);
+
+    int exitCode = system(command);
+
+    if (exitCode >= 1 && exitCode < 8) {
+        printf(" Complete!\n");
+        transferred++;
+        total++;
+    } else {
+        printf(" Error (Code: %d).\n", exitCode);
+        total++;
+    }
+        
 }
 
 int Lev_Distance(char* str1, char* str2){
@@ -45,18 +80,13 @@ int Lev_Distance(char* str1, char* str2){
 
 }
 
-//  C:\Users\Gabriel\Downloads\games.txt
-
-
-//  C:\Users\Gabriel\OneDrive\Desktop\Test
-
 void toLowerString(char* str){
     for(int i = 0; str[i]; i++){
         str[i] = tolower(str[i]);
     }
 }
 
-int search_repo(char* game_name, char* dest_path){
+int search_repo(char* game_name, char* dest_path,char dry_run){
     
     //init game repo directory
     DIR *game_repo;
@@ -72,72 +102,86 @@ int search_repo(char* game_name, char* dest_path){
         return 1;
     }
 
-    int bestDist = 999;
-    char bestmatch[256];
-    bestmatch[0] = '\0';
+    //Init struct of game and set lev distance to max for comparison
+    struct game_match game;
+    game.lev_distance = 999;
     
     // loop through game repo and find file name matches
     while ((entry = readdir(game_repo)) != NULL)
     {
+        char lower_Dir_Name[256];
+        strncpy(lower_Dir_Name,entry->d_name,255);
+        lower_Dir_Name[255] = '\0';
+        toLowerString(lower_Dir_Name);
 
-        toLowerString(entry->d_name);
-        int dist = Lev_Distance(entry->d_name,game_name);
+        int dist = Lev_Distance(lower_Dir_Name,game_name);
         int len = strlen(game_name);
-        
-        int threshold = len / 4;
-        if (threshold < 3) threshold = 3;
 
-        
+        int threshold = len / 4;
+        if(threshold < 2){
+            threshold = 2;
+        }
+
         //loop and save best distance
         if (dist <= threshold) {
-            if(dist < bestDist){
-                bestDist = dist;
-                strcpy(bestmatch,entry->d_name);
+
+            if(dist < game.lev_distance){
+                
+                game.lev_distance = dist;
+                strcpy(game.dir_name,entry->d_name);
             }
         }
-    }
+        
+    }   
 
-    if(bestDist < 999){
-        printf("The best distance for %s was %s at %d\n",game_name,bestmatch,bestDist);
-
-        char command[512];
-        sprintf(command, "robocopy \"E:\\%s\" \"%s\\%s\" /E", bestmatch, dest_path, bestmatch);
-        printf("Executing: %s\n", command);
-        system(command);
+    if(game.lev_distance < 999){
+        moveFolder(game_name, game.dir_name,dest_path,dry_run);
+    }else{
+        printf("Skipped: %s\n",game_name);
+        skipped_games = fopen("skipped.txt","a");
+        fprintf(skipped_games,"%s\n",game_name);
+        fclose(skipped_games);
+        skipped++;
+        total++;
     }
-    else printf("%s had no valid match\n",game_name);
     
+
+    closedir(game_repo);
+    return 0;
 }
 
 int main() {
 
-    // // 1. Take in requested games list
-    // printf("What is the filepath to the client text file? ");
-    // char client_list_path[256];
-    // fgets(client_list_path, 256, stdin);
-    // client_list_path[strcspn(client_list_path, "\n")] = 0; 
+    //1. Dry run option
+    printf("Want to run a dry run?\nY/N: ");
+    char dry_run = getchar();
+    while(getchar() != '\n');
+    dry_run = tolower(dry_run);
 
-    //1. Get destination location
+    //2. Get destination location
     printf("What is the Destination Filepath? ");
     char dest_Path[256];
     fgets(dest_Path,256,stdin);
     dest_Path[strcspn(dest_Path, "\n")] = 0;
     
+    //hard code destination bc its always the same
     FILE *client_list_file = fopen("C:\\Users\\Gabriel\\Downloads\\games.txt", "r");
 
+    
     if (client_list_file == NULL) {
         printf("File could not be opened.\n"); 
         return 1; 
     } else {
 
-        //process line by line
-        char line_buffer[256]; 
-        line_buffer[strcspn(line_buffer, "\n")] = 0;
-
-
-        while (fgets(line_buffer, 256, client_list_file) != NULL) {
-            search_repo(line_buffer,dest_Path);
+        char game_buffer[256]; 
+        while (fgets(game_buffer, 256, client_list_file) != NULL) {
+            search_repo(game_buffer,dest_Path,dry_run);
         }
+
+        printf("\n=== Summary ===\n");
+        printf("Transferred: %d\n",transferred);
+        printf("Skipped: %d\n",skipped);
+        printf("Total: %d\n",total);
         
         fclose(client_list_file); 
     }

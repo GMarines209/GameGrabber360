@@ -4,18 +4,77 @@
 #include <dirent.h>
 #include <windows.h>
 #include <ctype.h>
+#include <sys/stat.h>
 
 #define MIN(x, y, z) ((x) < (y) ? ((x) < (z) ? (x) : (z)) : ((y) < (z) ? (y) : (z)))
+
 int transferred,skipped,total;
+long long total_size;
 FILE* skipped_games;
 
 struct game_match
 {
     char dir_name[256];
     int lev_distance;
-    char* source_path;
     float confidence;
 }game_match;
+
+
+int getType(const char* fileName)
+{
+    struct __stat64 path;
+
+    if (_stat64(fileName, &path) != 0) {
+        printf("\nStat failed for: %s\n", fileName); 
+        perror("\nError was\n");                    
+        return 0; 
+    }
+
+    if(S_ISDIR(path.st_mode) != 0){ //dir return 1
+        //printf("\nIM A PATH\n");
+        return 1;
+    }
+    else if(S_ISREG(path.st_mode) != 0){ //file returns 2
+        //printf("IM A FILE");
+        return 2;
+    }
+    else{
+        //printf("\nIM NOTHING\n");
+        return 0; // else returns 0
+    }
+}
+
+long long get_dir_size(char* path){
+
+    long long size = 0;
+  
+    struct __stat64 buffer;
+    struct dirent *entry;
+
+    //  base case - if path is a file not dir then return the size 
+    if((getType(path) == 2)){
+        if(_stat64(path, &buffer) == 0) return buffer.st_size;
+    }
+    
+    DIR* game_dir = opendir(path);
+    if (game_dir == NULL) {
+        printf("Could not open directory.\n");
+        return 0;
+    }  
+    
+    while((entry = readdir(game_dir)) != NULL){
+        char*name = entry->d_name;
+        if(strcmp(name, ".") == 0 || strcmp(name, "..") == 0){
+            continue;
+        }
+        char fullpath[256];
+        sprintf(fullpath,"%s\\%s",path,name);
+        size += get_dir_size(fullpath);
+    }
+    
+    closedir(game_dir);
+    return size;
+}
 
 
 void moveFolder(char* game_name,char* bestMatch,char* dest_path,char dry_run){
@@ -24,13 +83,16 @@ void moveFolder(char* game_name,char* bestMatch,char* dest_path,char dry_run){
 
     if(dry_run == 'y'){
         flags = "/E /NFL /NDL /NJH /NJS /nc /ns /np /L";     //the /L flag is used for dry running
+        char full_path[256];
+        sprintf(full_path, "E:\\%s", bestMatch);
+        total_size += get_dir_size(full_path);
     }
 
     printf("Transfering: %s...",game_name);
     fflush(stdout);
 
     char command[512];
-    sprintf(command, "robocopy \"E:\\%s\" \"%s\\%s\" %s", bestMatch, dest_path, bestMatch,flags);
+    sprintf(command, "robocopy \"E:\\%s\" \"%s\\%s\" %s", bestMatch, dest_path, bestMatch, flags);
 
     int exitCode = system(command);
 
@@ -40,6 +102,7 @@ void moveFolder(char* game_name,char* bestMatch,char* dest_path,char dry_run){
         total++;
     } else {
         printf(" Error (Code: %d).\n", exitCode);
+        skipped++;
         total++;
     }
         
@@ -182,6 +245,9 @@ int main() {
         printf("Transferred: %d\n",transferred);
         printf("Skipped: %d\n",skipped);
         printf("Total: %d\n",total);
+
+        double total_GB = total_size / 1073741824.0;
+        printf("Total Size is: %.2f GB",total_GB);
         
         fclose(client_list_file); 
     }

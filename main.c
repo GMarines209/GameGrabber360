@@ -5,6 +5,7 @@
 #include <windows.h>
 #include <ctype.h>
 #include <sys/stat.h>
+#include <time.h>
 
 #define MIN(x, y, z) ((x) < (y) ? ((x) < (z) ? (x) : (z)) : ((y) < (z) ? (y) : (z)))
 
@@ -76,7 +77,6 @@ long long get_dir_size(char* path){
     return size;
 }
 
-
 void moveFolder(char* game_name,char* bestMatch,char* dest_path,char dry_run){
     
     char* flags = "/E /NFL /NDL /NJH /NJS /nc /ns /np";
@@ -88,12 +88,11 @@ void moveFolder(char* game_name,char* bestMatch,char* dest_path,char dry_run){
         total_size += get_dir_size(full_path);
     }
 
-    printf("Transfering: %s...",game_name);
-    fflush(stdout);
+    // printf("Transfering: %s...",game_name);
+    // fflush(stdout);
 
     char command[512];
-    sprintf(command, "robocopy \"E:\\%s\" \"%s\\%s\" %s", bestMatch, dest_path, bestMatch, flags);
-
+    sprintf(command, "robocopy \"E:\\%s\" \"%s\\%s\" %s > nul", bestMatch, dest_path, bestMatch, flags);
     int exitCode = system(command);
 
     if (exitCode >= 1 && exitCode < 8) {
@@ -156,8 +155,12 @@ int search_repo(char* game_name, char* dest_path,char dry_run){
     struct dirent *entry;
 
     //make case insensitive and remove new line
-    toLowerString(game_name);
     game_name[strcspn(game_name, "\n")] = 0;
+
+    printf("Transferring: %s... ", game_name); 
+    fflush(stdout);
+
+    toLowerString(game_name);
 
     game_repo = opendir("E:\\");
     if (game_repo == NULL) {
@@ -194,16 +197,13 @@ int search_repo(char* game_name, char* dest_path,char dry_run){
                 strcpy(game.dir_name,entry->d_name);
             }
         }
-        
     }   
 
     if(game.lev_distance < 999){
         moveFolder(game_name, game.dir_name,dest_path,dry_run);
     }else{
-        printf("Skipped: %s\n",game_name);
-        skipped_games = fopen("skipped.txt","a");
+        printf("\xE2\x9C\x97 Skipped (no match)\n"); // print cool chars
         fprintf(skipped_games,"%s\n",game_name);
-        fclose(skipped_games);
         skipped++;
         total++;
     }
@@ -214,6 +214,8 @@ int search_repo(char* game_name, char* dest_path,char dry_run){
 }
 
 int main() {
+
+    SetConsoleOutputCP(65001);
 
     //1. Dry run option
     printf("Want to run a dry run?\nY/N: ");
@@ -230,12 +232,21 @@ int main() {
     //hard code destination bc its always the same
     FILE *client_list_file = fopen("C:\\Users\\Gabriel\\Downloads\\games.txt", "r");
 
+
+    // Generate unique filename
+    char filename[100];
+    time_t now = time(NULL);
+    struct tm *t = localtime(&now);
+    strftime(filename, sizeof(filename), "Skipped_%Y-%m-%d_%H%M%S.txt", t);
+
+
+    skipped_games = fopen(filename,"a");
     
     if (client_list_file == NULL) {
         printf("File could not be opened.\n"); 
         return 1; 
     } else {
-
+        clock_t start = clock();
         char game_buffer[256]; 
         while (fgets(game_buffer, 256, client_list_file) != NULL) {
             search_repo(game_buffer,dest_Path,dry_run);
@@ -246,12 +257,22 @@ int main() {
         printf("Skipped: %d\n",skipped);
         printf("Total: %d\n",total);
 
-        double total_GB = total_size / 1073741824.0;
-        printf("Total Size is: %.2f GB",total_GB);
+        if(dry_run == 'y'){
+            double total_GB = total_size / 1073741824.0;
+            printf("Total Size is: %.2f GB\n",total_GB);
+        }
         
         fclose(client_list_file); 
+        clock_t end = clock();
+
+        double time_spent = (double)(end - start) / CLOCKS_PER_SEC;
+        printf("Time taken: %.2f seconds\n", time_spent);
     }
 
+
+    printf("\n\n");
+    fclose(skipped_games);
+    system("pause");
     return 0;
 }
 

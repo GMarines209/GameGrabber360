@@ -96,7 +96,7 @@ void moveFolder(char* game_name,char* bestMatch,char* dest_path,char dry_run){
     int exitCode = system(command);
 
     if (exitCode >= 1 && exitCode < 8) {
-        printf(" Complete!\n");
+        printf(" Complete \xe2\x9c\x94\n");
         transferred++;
         total++;
     } else {
@@ -202,7 +202,7 @@ int search_repo(char* game_name, char* dest_path,char dry_run){
     if(game.lev_distance < 999){
         moveFolder(game_name, game.dir_name,dest_path,dry_run);
     }else{
-        printf("\xE2\x9C\x97 Skipped (no match)\n"); // print cool chars
+        printf("\xe2\x9d\x8c Skipped (no match)\n"); // print cool chars
         fprintf(skipped_games,"%s\n",game_name);
         skipped++;
         total++;

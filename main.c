@@ -6,6 +6,7 @@
 #include <ctype.h>
 #include <sys/stat.h>
 #include <time.h>
+#include <shlobj.h> //for file explorer prompting 
 
 #define MIN(x, y, z) ((x) < (y) ? ((x) < (z) ? (x) : (z)) : ((y) < (z) ? (y) : (z)))
 
@@ -15,11 +16,20 @@ FILE* skipped_games;
 
 struct game_match
 {
-    char dir_name[256];
+    char dir_name[256]; 
     int lev_distance;
     float confidence;
 }game_match;
 
+typedef struct menu_selection{
+    int game_source;
+    int run_mode;
+    char dest_Path[256];
+}selection;
+
+int get_folder(char* pathBuffer, int bufferSize){
+    BROWSEINFO bi;
+}
 
 int getType(const char* fileName)
 {
@@ -32,15 +42,12 @@ int getType(const char* fileName)
     }
 
     if(S_ISDIR(path.st_mode) != 0){ //dir return 1
-        //printf("\nIM A PATH\n");
         return 1;
     }
     else if(S_ISREG(path.st_mode) != 0){ //file returns 2
-        //printf("IM A FILE");
         return 2;
     }
     else{
-        //printf("\nIM NOTHING\n");
         return 0; // else returns 0
     }
 }
@@ -77,25 +84,35 @@ long long get_dir_size(char* path){
     return size;
 }
 
-void moveFolder(char* game_name,char* bestMatch,char* dest_path,char dry_run){
+void moveFolder(char* game_name, char* bestMatch, struct menu_selection my_selection){
     
-    char* flags = "/E /NFL /NDL /NJH /NJS /nc /ns /np";
+    int dry_run = my_selection.run_mode;
+    
+    char final_flag[512];
+    strcpy(final_flag, "/E /NFL /NDL /NJH /NJS /nc /ns /np"); 
 
-    if(dry_run == 'y'){
-        flags = "/E /NFL /NDL /NJH /NJS /nc /ns /np /L";     //the /L flag is used for dry running
-        char full_path[256];
-        sprintf(full_path, "E:\\%s", bestMatch);
-        total_size += get_dir_size(full_path);
+    char source_path[512];
+    if(my_selection.game_source == 2){
+        sprintf(source_path, "E:\\1-Original Xbox games\\%s", bestMatch);
+    } else {
+        sprintf(source_path, "E:\\%s", bestMatch);
     }
 
-    // printf("Transfering: %s...",game_name);
-    // fflush(stdout);
+    if(dry_run == 1){
+        strcat(final_flag, " /L"); //L flag is for listing only / dry run
+        
+        total_size += get_dir_size(source_path);
+    }
 
-    char command[512];
-    sprintf(command, "robocopy \"E:\\%s\" \"%s\\%s\" %s > nul", bestMatch, dest_path, bestMatch, flags);
+    char dest_path[256];
+    strcpy(dest_path, my_selection.dest_Path);
+
+    char command[1024];
+    snprintf(command, sizeof(command), "robocopy \"%s\" \"%s\\%s\" %s > nul", source_path, dest_path, bestMatch, final_flag);
+    
     int exitCode = system(command);
 
-    if (exitCode >= 1 && exitCode < 8) {
+    if (exitCode >= 0 && exitCode < 8) {
         printf(" Complete \xe2\x9c\x94\n");
         transferred++;
         total++;
@@ -103,8 +120,7 @@ void moveFolder(char* game_name,char* bestMatch,char* dest_path,char dry_run){
         printf(" Error (Code: %d).\n", exitCode);
         skipped++;
         total++;
-    }
-        
+    }       
 }
 
 int Lev_Distance(char* str1, char* str2){
@@ -148,11 +164,16 @@ void toLowerString(char* str){
     }
 }
 
-int search_repo(char* game_name, char* dest_path,char dry_run){
+int search_repo(char* game_name, struct menu_selection my_selection){
     
     //init game repo directory
     DIR *game_repo;
     struct dirent *entry;
+
+    int dry_run = my_selection.run_mode;
+
+    char dest_path[256];
+    strcpy(dest_path,my_selection.dest_Path);
 
     //make case insensitive and remove new line
     game_name[strcspn(game_name, "\n")] = 0;
@@ -161,12 +182,23 @@ int search_repo(char* game_name, char* dest_path,char dry_run){
     fflush(stdout);
 
     toLowerString(game_name);
+    
+    if(my_selection.game_source == 1){
 
-    game_repo = opendir("E:\\");
-    if (game_repo == NULL) {
-        printf("Could not open E drive.\n");
-        return 1;
+        game_repo = opendir("E:\\");
+        if (game_repo == NULL) {
+            printf("Could not open E:\\ drive.\n");
+            return 1;
+        }
     }
+    else{
+        game_repo = opendir("E:\\1-Original Xbox games");
+        if (game_repo == NULL) {
+            printf("Could not open E:\\original Xbox games drive.\n");
+            return 1;
+        }
+    }
+    
 
     //Init struct of game and set lev distance to max for comparison
     struct game_match game;
@@ -200,7 +232,7 @@ int search_repo(char* game_name, char* dest_path,char dry_run){
     }   
 
     if(game.lev_distance < 999){
-        moveFolder(game_name, game.dir_name,dest_path,dry_run);
+        moveFolder(game_name, game.dir_name,my_selection);
     }else{
         printf("\xe2\x9d\x8c Skipped (no match)\n"); // print cool chars
         fprintf(skipped_games,"%s\n",game_name);
@@ -213,27 +245,92 @@ int search_repo(char* game_name, char* dest_path,char dry_run){
     return 0;
 }
 
+selection menu(){
+
+    selection my_selection;
+    int choice;
+    
+    printf("==== Game Grabber 360 ====\n");
+    printf("Select game source:\n");
+    printf("1. Xbox 360 Games\n");
+    printf("2. Original Xbox Games\n");
+    printf("3. Exit\n");
+
+    scanf("%d",&choice);
+    while ((getchar()) != '\n');
+
+    
+    while(choice != 1 && choice != 2 && choice != 3){
+        printf("Invalid selection. Try again:\t");
+        scanf("%d",&choice);
+        while ((getchar()) != '\n');
+    }
+    my_selection.game_source = choice;
+    if(choice == 3){
+        my_selection.game_source = -1;
+        my_selection.run_mode = -1;
+        return my_selection;
+    }
+
+   
+    printf("\nSelect Mode\n");
+    printf("1. Dry Run\n");
+    printf("2. Full Transfer\n");
+    printf("3. Exit\n");
+
+    scanf("%d",&choice);
+    while ((getchar()) != '\n');
+
+
+    while(choice != 1 && choice != 2 && choice != 3){
+        printf("\nInvalid selection. Try again\n");
+        scanf("%d",&choice);
+        while ((getchar()) != '\n');
+    }
+
+    my_selection.run_mode = choice;
+    switch (choice)
+    {
+    case 1:
+        printf("\nWhat is the Destination Filepath? ");
+        fgets(my_selection.dest_Path,256,stdin);
+        my_selection.dest_Path[strcspn(my_selection.dest_Path, "\n")] = 0;
+
+        my_selection.run_mode = 1; //dry run
+        break;
+
+    case 2:
+        printf("\nWhat is the Destination Filepath? ");
+        fgets(my_selection.dest_Path,256,stdin);
+        my_selection.dest_Path[strcspn(my_selection.dest_Path, "\n")] = 0;
+
+        my_selection.run_mode = 2; // normal run
+        break;
+    case 3:
+        my_selection.game_source = -1;
+        my_selection.run_mode = -1;
+        return my_selection;
+    default:
+        break;
+    }
+    
+    
+    return my_selection;
+
+}
+
+
 int main() {
 
     SetConsoleOutputCP(65001);
 
-    //1. Dry run option
-    printf("Want to run a dry run?\nY/N: ");
-    char dry_run = getchar();
-    while(getchar() != '\n');
-    dry_run = tolower(dry_run);
+    selection my_selection = menu();
 
-    //2. Get destination location
-    printf("What is the Destination Filepath? ");
-    char dest_Path[256];
-    fgets(dest_Path,256,stdin);
-    dest_Path[strcspn(dest_Path, "\n")] = 0;
-    
-    //hard code destination bc its always the same
+    //open games list 
     FILE *client_list_file = fopen("C:\\Users\\Gabriel\\Downloads\\games.txt", "r");
 
 
-    // Generate unique filename
+    // Generate unique skipped filename
     char filename[100];
     time_t now = time(NULL);
     struct tm *t = localtime(&now);
@@ -249,7 +346,7 @@ int main() {
         clock_t start = clock();
         char game_buffer[256]; 
         while (fgets(game_buffer, 256, client_list_file) != NULL) {
-            search_repo(game_buffer,dest_Path,dry_run);
+            search_repo(game_buffer,my_selection);
         }
 
         printf("\n=== Summary ===\n");
@@ -257,7 +354,7 @@ int main() {
         printf("Skipped: %d\n",skipped);
         printf("Total: %d\n",total);
 
-        if(dry_run == 'y'){
+        if(my_selection.run_mode == 1){
             double total_GB = total_size / 1073741824.0;
             printf("Total Size is: %.2f GB\n",total_GB);
         }

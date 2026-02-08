@@ -6,8 +6,10 @@
 #include <ctype.h>
 #include <sys/stat.h>
 #include <time.h>
-#include <shlobj.h> //for file explorer prompting 
+#include <shobjidl.h> 
+#include "file_browser.h"
 
+#define COBJMACROS
 #define MIN(x, y, z) ((x) < (y) ? ((x) < (z) ? (x) : (z)) : ((y) < (z) ? (y) : (z)))
 
 int transferred,skipped,total;
@@ -26,10 +28,6 @@ typedef struct menu_selection{
     int run_mode;
     char dest_Path[256];
 }selection;
-
-int get_folder(char* pathBuffer, int bufferSize){
-    BROWSEINFO bi;
-}
 
 int getType(const char* fileName)
 {
@@ -76,7 +74,7 @@ long long get_dir_size(char* path){
             continue;
         }
         char fullpath[256];
-        sprintf(fullpath,"%s\\%s",path,name);
+        snprintf(fullpath,sizeof(fullpath),"%s\\%s",path,name);
         size += get_dir_size(fullpath);
     }
     
@@ -93,9 +91,9 @@ void moveFolder(char* game_name, char* bestMatch, struct menu_selection my_selec
 
     char source_path[512];
     if(my_selection.game_source == 2){
-        sprintf(source_path, "E:\\1-Original Xbox games\\%s", bestMatch);
+        snprintf(source_path,sizeof(source_path), "E:\\1-Original Xbox games\\%s", bestMatch);
     } else {
-        sprintf(source_path, "E:\\%s", bestMatch);
+        snprintf(source_path,sizeof(source_path), "E:\\%s", bestMatch);
     }
 
     if(dry_run == 1){
@@ -293,8 +291,21 @@ selection menu(){
     {
     case 1:
         printf("\nWhat is the Destination Filepath? ");
-        fgets(my_selection.dest_Path,256,stdin);
-        my_selection.dest_Path[strcspn(my_selection.dest_Path, "\n")] = 0;
+        // fgets(my_selection.dest_Path,256,stdin);
+        // my_selection.dest_Path[strcspn(my_selection.dest_Path, "\n")] = 0;
+
+        char* selected_path = PickFolder(NULL);
+        if (selected_path != NULL) {
+            // Copy it into your struct safely
+            strncpy(my_selection.dest_Path, selected_path, 255);
+            my_selection.dest_Path[255] = '\0'; // Ensure null terminator
+            
+            free(selected_path); // IMPORTANT: Free the memory allocated in file_picker.c
+        } else {
+            // Handle cancel/error
+            printf("No folder selected. Defaulting to current directory.\n");
+            // handle default...
+        }
 
         my_selection.run_mode = 1; //dry run
         break;
@@ -325,6 +336,10 @@ int main() {
     SetConsoleOutputCP(65001);
 
     selection my_selection = menu();
+    if (my_selection.game_source == -1 || my_selection.run_mode == -1) {
+        printf("Exiting...\n");
+        return 0; 
+    }
 
     //open games list 
     FILE *client_list_file = fopen("C:\\Users\\Gabriel\\Downloads\\games.txt", "r");
@@ -365,7 +380,6 @@ int main() {
         double time_spent = (double)(end - start) / CLOCKS_PER_SEC;
         printf("Time taken: %.2f seconds\n", time_spent);
     }
-
 
     printf("\n\n");
     fclose(skipped_games);

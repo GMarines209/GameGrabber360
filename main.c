@@ -287,24 +287,19 @@ selection menu(){
     }
 
     my_selection.run_mode = choice;
+    char* selected_path = PickFolder(NULL);
     switch (choice)
     {
     case 1:
         printf("\nWhat is the Destination Filepath? ");
-        // fgets(my_selection.dest_Path,256,stdin);
-        // my_selection.dest_Path[strcspn(my_selection.dest_Path, "\n")] = 0;
-
-        char* selected_path = PickFolder(NULL);
         if (selected_path != NULL) {
-            // Copy it into your struct safely
+            // Copy it into struct safely
             strncpy(my_selection.dest_Path, selected_path, 255);
-            my_selection.dest_Path[255] = '\0'; // Ensure null terminator
+            my_selection.dest_Path[255] = '\0'; 
             
-            free(selected_path); // IMPORTANT: Free the memory allocated in file_picker.c
+            free(selected_path); 
         } else {
-            // Handle cancel/error
             printf("No folder selected. Defaulting to current directory.\n");
-            // handle default...
         }
 
         my_selection.run_mode = 1; //dry run
@@ -312,8 +307,14 @@ selection menu(){
 
     case 2:
         printf("\nWhat is the Destination Filepath? ");
-        fgets(my_selection.dest_Path,256,stdin);
-        my_selection.dest_Path[strcspn(my_selection.dest_Path, "\n")] = 0;
+        if (selected_path != NULL) {
+            strncpy(my_selection.dest_Path, selected_path, 255);
+            my_selection.dest_Path[255] = '\0';
+            
+            free(selected_path); 
+        } else {
+            printf("No folder selected. Defaulting to current directory.\n");
+        }
 
         my_selection.run_mode = 2; // normal run
         break;
@@ -342,7 +343,7 @@ int main() {
     }
 
     //open games list 
-    FILE *client_list_file = fopen("C:\\Users\\Gabriel\\Downloads\\games.txt", "r");
+    FILE *client_list_file = fopen("C:\\Users\\Gabriel\\OneDrive\\Desktop\\Xbox stuff\\Client stuff\\games.txt", "r");
 
 
     // Generate unique skipped filename

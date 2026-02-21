@@ -12,16 +12,20 @@
 #define COBJMACROS
 #define MIN(x, y, z) ((x) < (y) ? ((x) < (z) ? (x) : (z)) : ((y) < (z) ? (y) : (z)))
 
-int transferred,skipped,total;
-long long total_size;
-FILE* skipped_games;
+typedef struct{
+    int transfered;
+    int skipped;
+    int total_count;
+    long long total_size;
+    FILE* skipped_games_log;
+}appContext;
 
 struct game_match
 {
     char dir_name[256]; 
     int lev_distance;
     float confidence;
-}game_match;
+};
 
 typedef struct menu_selection{
     int game_source;
@@ -82,7 +86,7 @@ long long get_dir_size(char* path){
     return size;
 }
 
-void moveFolder(char* game_name, char* bestMatch, struct menu_selection my_selection){
+void moveFolder(char* game_name, char* bestMatch, struct menu_selection my_selection, appContext *context_ptr){
     
     int dry_run = my_selection.run_mode;
     
@@ -99,7 +103,7 @@ void moveFolder(char* game_name, char* bestMatch, struct menu_selection my_selec
     if(dry_run == 1){
         strcat(final_flag, " /L"); //L flag is for listing only / dry run
         
-        total_size += get_dir_size(source_path);
+        context_ptr->total_size += get_dir_size(source_path);
     }
 
     char dest_path[256];
@@ -112,12 +116,12 @@ void moveFolder(char* game_name, char* bestMatch, struct menu_selection my_selec
 
     if (exitCode >= 0 && exitCode < 8) {
         printf(" Complete \xe2\x9c\x94\n");
-        transferred++;
-        total++;
+        context_ptr->transfered++;
+        context_ptr->total_count++;
     } else {
         printf(" Error (Code: %d).\n", exitCode);
-        skipped++;
-        total++;
+        context_ptr->skipped++;
+        context_ptr->total_count++;
     }       
 }
 
@@ -162,7 +166,7 @@ void toLowerString(char* str){
     }
 }
 
-int search_repo(char* game_name, struct menu_selection my_selection){
+int search_repo(char* game_name, struct menu_selection my_selection, appContext *context_ptr){
     
     //init game repo directory
     DIR *game_repo;
@@ -230,12 +234,12 @@ int search_repo(char* game_name, struct menu_selection my_selection){
     }   
 
     if(game.lev_distance < 999){
-        moveFolder(game_name, game.dir_name,my_selection);
+        moveFolder(game_name, game.dir_name,my_selection,context_ptr);
     }else{
         printf("\xe2\x9d\x8c Skipped (no match)\n"); // print cool chars
-        fprintf(skipped_games,"%s\n",game_name);
-        skipped++;
-        total++;
+        fprintf(context_ptr->skipped_games_log,"%s\n",game_name);
+        context_ptr->skipped++;
+        context_ptr->total_count++;
     }
     
 
@@ -336,6 +340,14 @@ int main() {
 
     SetConsoleOutputCP(65001);
 
+    appContext context;
+
+    context.transfered = 0;
+    context.skipped = 0;
+    context.total_count = 0;
+    context.total_size = 0;
+    context.skipped_games_log = NULL;
+
     selection my_selection = menu();
     if (my_selection.game_source == -1 || my_selection.run_mode == -1) {
         printf("Exiting...\n");
@@ -352,8 +364,6 @@ int main() {
     struct tm *t = localtime(&now);
     strftime(filename, sizeof(filename), "Skipped_%Y-%m-%d_%H%M%S.txt", t);
 
-
-    skipped_games = fopen(filename,"a");
     
     if (client_list_file == NULL) {
         printf("File could not be opened.\n"); 
@@ -361,17 +371,18 @@ int main() {
     } else {
         clock_t start = clock();
         char game_buffer[256]; 
+        context.skipped_games_log = fopen(filename,"a");
         while (fgets(game_buffer, 256, client_list_file) != NULL) {
-            search_repo(game_buffer,my_selection);
+            search_repo(game_buffer,my_selection,&context);
         }
 
         printf("\n=== Summary ===\n");
-        printf("Transferred: %d\n",transferred);
-        printf("Skipped: %d\n",skipped);
-        printf("Total: %d\n",total);
+        printf("Transferred: %d\n",context.transfered);
+        printf("Skipped: %d\n",context.skipped);
+        printf("Total: %d\n",context.total_count);
 
         if(my_selection.run_mode == 1){
-            double total_GB = total_size / 1073741824.0;
+            double total_GB = context.total_size / 1073741824.0;
             printf("Total Size is: %.2f GB\n",total_GB);
         }
         
@@ -383,7 +394,7 @@ int main() {
     }
 
     printf("\n\n");
-    fclose(skipped_games);
+    fclose(context.skipped_games_log);
     system("pause");
     return 0;
 }

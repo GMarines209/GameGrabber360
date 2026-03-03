@@ -11,33 +11,9 @@
 
 #include "file_browser.h"
 #include "utils.h"
+#include "structs.h"
 
-#define COBJMACROS
-
-typedef struct{
-    int transfered;
-    int skipped;
-    int total_count;
-    long long total_size;
-    FILE* skipped_games_log;
-}appContext;
-
-struct game_match
-{
-    char dir_name[256]; 
-    int lev_distance;
-    float confidence;
-};
-
-typedef struct menu_selection{
-    int game_source;
-    int run_mode;
-    char dest_Path[256];
-}selection;
-
-
-
-void moveFolder(char* game_name, char* bestMatch, struct menu_selection my_selection, appContext *context_ptr){
+void moveFolder(char* bestMatch, struct menu_selection my_selection, appContext *context_ptr){
     
     int dry_run = my_selection.run_mode;
     
@@ -75,7 +51,6 @@ void moveFolder(char* game_name, char* bestMatch, struct menu_selection my_selec
         context_ptr->total_count++;
     }       
 }
-
 
 
 int search_repo(char* game_name, struct menu_selection my_selection, appContext *context_ptr){
@@ -146,7 +121,7 @@ int search_repo(char* game_name, struct menu_selection my_selection, appContext 
     }   
 
     if(game.lev_distance < 999){
-        moveFolder(game_name, game.dir_name,my_selection,context_ptr);
+        moveFolder(game.dir_name,my_selection,context_ptr);
     }else{
         printf("\xe2\x9d\x8c Skipped (no match)\n"); // print cool chars
         fprintf(context_ptr->skipped_games_log,"%s\n",game_name);

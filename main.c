@@ -8,6 +8,7 @@
 #include <time.h>
 #include <shobjidl.h> 
 
+
 #include "file_browser.h"
 #include "utils.h"
 
@@ -33,6 +34,7 @@ typedef struct menu_selection{
     int run_mode;
     char dest_Path[256];
 }selection;
+
 
 
 void moveFolder(char* game_name, char* bestMatch, struct menu_selection my_selection, appContext *context_ptr){
@@ -73,6 +75,7 @@ void moveFolder(char* game_name, char* bestMatch, struct menu_selection my_selec
         context_ptr->total_count++;
     }       
 }
+
 
 
 int search_repo(char* game_name, struct menu_selection my_selection, appContext *context_ptr){

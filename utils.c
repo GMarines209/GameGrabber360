@@ -3,7 +3,7 @@
 #include <string.h>
 #include <dirent.h>
 #include <ctype.h>
-#include <sys/stat.h>
+#include <sys/stat.h> 
 #include "utils.h"
 
 #define MIN(x, y, z) ((x) < (y) ? ((x) < (z) ? (x) : (z)) : ((y) < (z) ? (y) : (z)))

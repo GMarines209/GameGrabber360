@@ -7,6 +7,7 @@ typedef struct{
     int transfered;
     int skipped;
     int total_count;
+    int go_again;
     long long total_size;
     FILE* skipped_games_log;
 }appContext;

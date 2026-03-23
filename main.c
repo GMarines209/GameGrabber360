@@ -14,9 +14,7 @@
 #include "structs.h"
 
 void moveFolder(char* bestMatch, struct menu_selection my_selection, appContext *context_ptr){
-    
-    int dry_run = my_selection.run_mode;
-    
+        
     char final_flag[512];
     strcpy(final_flag, "/E /NFL /NDL /NJH /NJS /nc /ns /np"); 
 
@@ -27,7 +25,7 @@ void moveFolder(char* bestMatch, struct menu_selection my_selection, appContext 
         snprintf(source_path,sizeof(source_path), "E:\\%s", bestMatch);
     }
 
-    if(dry_run == 1){
+    if(my_selection.run_mode == 1){
         strcat(final_flag, " /L"); //L flag is for listing only / dry run
         
         context_ptr->total_size += get_dir_size(source_path);
@@ -58,8 +56,6 @@ int search_repo(char* game_name, struct menu_selection my_selection, appContext 
     //init game repo directory
     DIR *game_repo;
     struct dirent *entry;
-
-    int dry_run = my_selection.run_mode;
 
     char dest_path[256];
     strcpy(dest_path,my_selection.dest_Path);
@@ -124,7 +120,21 @@ int search_repo(char* game_name, struct menu_selection my_selection, appContext 
         moveFolder(game.dir_name,my_selection,context_ptr);
     }else{
         printf("\xe2\x9d\x8c Skipped (no match)\n"); // print cool chars
-        fprintf(context_ptr->skipped_games_log,"%s\n",game_name);
+
+        if(context_ptr->skipped_games_log == NULL){
+            // // Generate unique skipped filename
+            char filename[100];
+            time_t now = time(NULL);
+            struct tm *t = localtime(&now);
+            strftime(filename, sizeof(filename), "Skipped_%Y-%m-%d_%H%M%S.txt", t);
+
+            context_ptr->skipped_games_log = fopen(filename,"a");
+        }
+
+        if(context_ptr->skipped_games_log != NULL){
+            fprintf(context_ptr->skipped_games_log,"%s\n",game_name);
+        }
+
         context_ptr->skipped++;
         context_ptr->total_count++;
     }
@@ -234,50 +244,58 @@ int main() {
     context.total_count = 0;
     context.total_size = 0;
     context.skipped_games_log = NULL;
+    context.go_again = 1;
+ 
+    while(context.go_again == 1){
 
-    selection my_selection = menu();
-    if (my_selection.game_source == -1 || my_selection.run_mode == -1) {
-        printf("Exiting...\n");
-        return 0; 
-    }
-
-    //open games list 
-    FILE *client_list_file = fopen("C:\\Users\\Gabriel\\OneDrive\\Desktop\\Xbox stuff\\Client stuff\\games.txt", "r");
-
-
-    // Generate unique skipped filename
-    char filename[100];
-    time_t now = time(NULL);
-    struct tm *t = localtime(&now);
-    strftime(filename, sizeof(filename), "Skipped_%Y-%m-%d_%H%M%S.txt", t);
-
-    
-    if (client_list_file == NULL) {
-        printf("File could not be opened.\n"); 
-        return 1; 
-    } else {
-        clock_t start = clock();
-        char game_buffer[256]; 
-        context.skipped_games_log = fopen(filename,"a");
-        while (fgets(game_buffer, 256, client_list_file) != NULL) {
-            search_repo(game_buffer,my_selection,&context);
+        selection my_selection = menu();
+        if (my_selection.game_source == -1 || my_selection.run_mode == -1) {
+            printf("Exiting...\n");
+            return 0; 
         }
 
-        printf("\n=== Summary ===\n");
-        printf("Transferred: %d\n",context.transfered);
-        printf("Skipped: %d\n",context.skipped);
-        printf("Total: %d\n",context.total_count);
-
-        if(my_selection.run_mode == 1){
-            double total_GB = context.total_size / 1073741824.0;
-            printf("Total Size is: %.2f GB\n",total_GB);
-        }
+        //open games list 
+        FILE *client_list_file = fopen("C:\\Users\\Gabriel\\OneDrive\\Desktop\\Xbox stuff\\Client stuff\\games.txt", "r");
         
-        fclose(client_list_file); 
-        clock_t end = clock();
+        if (client_list_file == NULL) {
+            printf("File could not be opened.\n"); 
+            return 1; 
+        } else {
+            clock_t start = clock();
+            char game_buffer[256]; 
+            while (fgets(game_buffer, 256, client_list_file) != NULL) {
+                search_repo(game_buffer,my_selection,&context);
+            }
 
-        double time_spent = (double)(end - start) / CLOCKS_PER_SEC;
-        printf("Time taken: %.2f seconds\n", time_spent);
+            printf("\n=== Summary ===\n");
+            printf("Transferred: %d\n",context.transfered);
+            printf("Skipped: %d\n",context.skipped);
+            printf("Total: %d\n",context.total_count);
+
+            if(my_selection.run_mode == 1){
+                double total_GB = context.total_size / 1073741824.0;
+                printf("Total Size is: %.2f GB\n",total_GB);
+            }
+            
+            fclose(client_list_file); 
+            clock_t end = clock();
+
+            double time_spent = (double)(end - start) / CLOCKS_PER_SEC;
+            printf("Time taken: %.2f seconds\n", time_spent);
+
+            printf("\nWould you like to go again? (1-yes/0-no) ");
+            scanf("%d",&context.go_again);
+            while(context.go_again != 0 && context.go_again != 1 ){
+                printf("\nInvalid selection. Try again\n");
+                scanf("%d",&context.go_again);
+                while ((getchar()) != '\n');
+            }
+            
+
+        }
+
+        context.total_size = 0;
+        printf("\n\n");
     }
 
     printf("\n\n");

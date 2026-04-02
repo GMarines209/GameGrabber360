@@ -9,13 +9,13 @@
 #define MIN(x, y, z) ((x) < (y) ? ((x) < (z) ? (x) : (z)) : ((y) < (z) ? (y) : (z)))
 
 
-void toLowerString(char* str){
+void to_lower_string(char* str){
     for(int i = 0; str[i]; i++){
         str[i] = tolower(str[i]);
     }
 }
 
-int getType(const char* fileName){
+int get_type(const char* fileName){
     struct __stat64 path;
 
     if (_stat64(fileName, &path) != 0) {
@@ -43,7 +43,7 @@ long long get_dir_size(char* path){
     struct dirent *entry;
 
     //  base case - if path is a file not dir then return the size 
-    if((getType(path) == 2)){
+    if((get_type(path) == 2)){
         if(_stat64(path, &buffer) == 0) return buffer.st_size;
     }
     

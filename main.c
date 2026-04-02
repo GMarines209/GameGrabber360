@@ -13,10 +13,15 @@
 #include "utils.h"
 #include "structs.h"
 
-void moveFolder(char* bestMatch, struct menu_selection my_selection, appContext *context_ptr){
+//TODO
+// FIX TIME TAKEN WAY TOO LOW AFTER RESTARTS
+// FIX PERCENTAGES
+
+
+void move_folder(char* bestMatch, struct menu_selection my_selection, appContext *context_ptr){
         
-    char final_flag[512];
-    strcpy(final_flag, "/E /NFL /NDL /NJH /NJS /nc /ns /np"); 
+    char final_flag[256];
+    strcpy(final_flag, "/E /NJH /NJS /nc /BYTES"); 
 
     char source_path[512];
     if(my_selection.game_source == 2){
@@ -35,9 +40,23 @@ void moveFolder(char* bestMatch, struct menu_selection my_selection, appContext 
     strcpy(dest_path, my_selection.dest_Path);
 
     char command[1024];
-    snprintf(command, sizeof(command), "robocopy \"%s\" \"%s\\%s\" %s > nul", source_path, dest_path, bestMatch, final_flag);
-    
-    int exitCode = system(command);
+    snprintf(command, sizeof(command), "robocopy \"%s\" \"%s\\%s\" %s", source_path, dest_path, bestMatch, final_flag);
+
+    //swithced to _popen instead of system() for real time command line updating for file progress display
+    FILE *pipe = _popen(command, "r");
+    char buffer[256];
+
+    while (fgets(buffer, sizeof(buffer), pipe) != NULL){
+        if(strstr(buffer,"%") == NULL) continue;
+        
+        float progress = 0.0;
+        sscanf(buffer,"%f%%",&progress);
+
+        printf("\rTransferring: %s... %.1f%%               ", bestMatch, progress); //BROKEN
+        fflush(stdout); 
+    }
+
+    int exitCode = _pclose(pipe);
 
     if (exitCode >= 0 && exitCode < 8) {
         printf(" Complete \xe2\x9c\x94\n");
@@ -66,7 +85,7 @@ int search_repo(char* game_name, struct menu_selection my_selection, appContext 
     printf("Transferring: %s... ", game_name); 
     fflush(stdout);
 
-    toLowerString(game_name);
+    to_lower_string(game_name);
     
     if(my_selection.game_source == 1){
 
@@ -95,7 +114,7 @@ int search_repo(char* game_name, struct menu_selection my_selection, appContext 
         char lower_Dir_Name[256];
         strncpy(lower_Dir_Name,entry->d_name,255);
         lower_Dir_Name[255] = '\0';
-        toLowerString(lower_Dir_Name);
+        to_lower_string(lower_Dir_Name);
 
         int dist = Lev_Distance(lower_Dir_Name,game_name);
         int len = strlen(game_name);
@@ -117,7 +136,7 @@ int search_repo(char* game_name, struct menu_selection my_selection, appContext 
     }   
 
     if(game.lev_distance < 999){
-        moveFolder(game.dir_name,my_selection,context_ptr);
+        move_folder(game.dir_name,my_selection,context_ptr);
     }else{
         printf("\xe2\x9d\x8c Skipped (no match)\n"); // print cool chars
 
@@ -189,36 +208,55 @@ selection menu(){
 
     my_selection.run_mode = choice;
     char* selected_path = PickFolder(NULL);
+
     switch (choice)
     {
     case 1:
         printf("\nWhat is the Destination Filepath? ");
-        if (selected_path != NULL) {
-            // Copy it into struct safely
-            strncpy(my_selection.dest_Path, selected_path, 255);
-            my_selection.dest_Path[255] = '\0'; 
-            
-            free(selected_path); 
-        } else {
-            printf("No folder selected. Defaulting to current directory.\n");
+        
+
+        if(selected_path == NULL){
+            printf("\nSelection cancelled. Aborting program...\n");
+            my_selection.game_source = -1;
+            my_selection.run_mode = -1;
+            return my_selection;
         }
+        else{
+        // Copy it into struct safely
+        strncpy(my_selection.dest_Path, selected_path, 255);
+        my_selection.dest_Path[255] = '\0'; 
+        
+        free(selected_path); 
+        break;
+        }
+    
 
         my_selection.run_mode = 1; //dry run
         break;
 
     case 2:
         printf("\nWhat is the Destination Filepath? ");
-        if (selected_path != NULL) {
-            strncpy(my_selection.dest_Path, selected_path, 255);
-            my_selection.dest_Path[255] = '\0';
-            
-            free(selected_path); 
-        } else {
-            printf("No folder selected. Defaulting to current directory.\n");
-        }
+        
 
-        my_selection.run_mode = 2; // normal run
+        if(selected_path == NULL){
+            printf("\nSelection cancelled. Aborting program...\n");
+            my_selection.game_source = -1;
+            my_selection.run_mode = -1;
+            return my_selection;
+        }
+        else{
+        // Copy it into struct safely
+        strncpy(my_selection.dest_Path, selected_path, 255);
+        my_selection.dest_Path[255] = '\0'; 
+        
+        free(selected_path); 
         break;
+        }
+    
+
+        my_selection.run_mode = 2; //Full run
+        break;
+
     case 3:
         my_selection.game_source = -1;
         my_selection.run_mode = -1;
@@ -250,10 +288,10 @@ int main() {
 
         selection my_selection = menu();
         if (my_selection.game_source == -1 || my_selection.run_mode == -1) {
-            printf("Exiting...\n");
-            return 0; 
+            break; 
         }
 
+        printf("\n");
         //open games list 
         FILE *client_list_file = fopen("C:\\Users\\Gabriel\\OneDrive\\Desktop\\Xbox stuff\\Client stuff\\games.txt", "r");
         
@@ -299,8 +337,12 @@ int main() {
     }
 
     printf("\n\n");
-    fclose(context.skipped_games_log);
-    system("pause");
+    if(context.skipped_games_log != NULL){
+        fclose(context.skipped_games_log);
+    }
+    
+    printf("Press Enter to exit...");
+    getchar();
     return 0;
 }
 

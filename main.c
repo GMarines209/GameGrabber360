@@ -332,6 +332,7 @@ int main() {
         context.total_size = 0;
         context.skipped = 0;
         context.total_count = 0;
+        context.transfered = 0;
         printf("\n\n");
     }
 

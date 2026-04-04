@@ -14,14 +14,12 @@
 #include "structs.h"
 
 //TODO
-// FIX TIME TAKEN WAY TOO LOW AFTER RESTARTS
 // FIX PERCENTAGES
-
 
 void move_folder(char* bestMatch, struct menu_selection my_selection, appContext *context_ptr){
         
     char final_flag[256];
-    strcpy(final_flag, "/E /NJH /NJS /nc /BYTES"); 
+    strcpy(final_flag, "/E /NJH /NJS /NDL /nc /BYTES"); 
 
     char source_path[512];
     if(my_selection.game_source == 2){
@@ -68,7 +66,6 @@ void move_folder(char* bestMatch, struct menu_selection my_selection, appContext
         context_ptr->total_count++;
     }       
 }
-
 
 int search_repo(char* game_name, struct menu_selection my_selection, appContext *context_ptr){
     
@@ -299,7 +296,7 @@ int main() {
             printf("File could not be opened.\n"); 
             return 1; 
         } else {
-            clock_t start = clock();
+            time_t start_time = time(NULL);
             char game_buffer[256]; 
             while (fgets(game_buffer, 256, client_list_file) != NULL) {
                 search_repo(game_buffer,my_selection,&context);
@@ -316,9 +313,9 @@ int main() {
             }
             
             fclose(client_list_file); 
-            clock_t end = clock();
+            time_t end_time = time(NULL);
+            double time_spent = difftime(end_time,start_time);
 
-            double time_spent = (double)(end - start) / CLOCKS_PER_SEC;
             printf("Time taken: %.2f seconds\n", time_spent);
 
             printf("\nWould you like to go again? (1-yes/0-no) ");
@@ -333,6 +330,8 @@ int main() {
         }
 
         context.total_size = 0;
+        context.skipped = 0;
+        context.total_count = 0;
         printf("\n\n");
     }
 

@@ -13,13 +13,10 @@
 #include "utils.h"
 #include "structs.h"
 
-//TODO
-// FIX PERCENTAGES
-
 void move_folder(char* bestMatch, struct menu_selection my_selection, appContext *context_ptr){
         
     char final_flag[256];
-    strcpy(final_flag, "/E /NJH /NJS /NDL /nc /BYTES"); 
+    strcpy(final_flag, "/E /NDL /NJH /NJS /nc /BYTES /np"); 
 
     char source_path[512];
     if(my_selection.game_source == 2){
@@ -27,6 +24,8 @@ void move_folder(char* bestMatch, struct menu_selection my_selection, appContext
     } else {
         snprintf(source_path,sizeof(source_path), "E:\\%s", bestMatch);
     }
+
+    long long total_bytes = get_dir_size(source_path);
 
     if(my_selection.run_mode == 1){
         strcat(final_flag, " /L"); //L flag is for listing only / dry run
@@ -40,18 +39,29 @@ void move_folder(char* bestMatch, struct menu_selection my_selection, appContext
     char command[1024];
     snprintf(command, sizeof(command), "robocopy \"%s\" \"%s\\%s\" %s", source_path, dest_path, bestMatch, final_flag);
 
+    long long bytes_transferred = 0;
+
     //swithced to _popen instead of system() for real time command line updating for file progress display
     FILE *pipe = _popen(command, "r");
     char buffer[256];
-
+    
     while (fgets(buffer, sizeof(buffer), pipe) != NULL){
-        if(strstr(buffer,"%") == NULL) continue;
         
-        float progress = 0.0;
-        sscanf(buffer,"%f%%",&progress);
-
-        printf("\rTransferring: %s... %.1f%%               ", bestMatch, progress); //BROKEN
-        fflush(stdout); 
+        long long file_bytes = 0;
+        
+        if (sscanf(buffer, "%lld", &file_bytes) == 1) {
+            
+            bytes_transferred += file_bytes;
+            
+            float progress = 0.0f;
+            
+            if (total_bytes > 0) {
+                progress = ((float)bytes_transferred / (float)total_bytes) * 100.0f;
+            }
+            
+            printf("\rTransferring: %s... %.1f%%", bestMatch, progress);
+            fflush(stdout); 
+        }
     }
 
     int exitCode = _pclose(pipe);

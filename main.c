@@ -175,8 +175,7 @@ selection menu(){
     selection my_selection;
     int choice;
     
-    printf("==== Game Grabber 360 ====\n");
-    printf("Select game source:\n");
+    printf("\nSelect game source:\n");
     printf("1. Xbox 360 Games\n");
     printf("2. Original Xbox Games\n");
     printf("3. Exit\n");
@@ -290,7 +289,9 @@ int main() {
     context.total_size = 0;
     context.skipped_games_log = NULL;
     context.go_again = 1;
- 
+
+    print_splash_screen();
+
     while(context.go_again == 1){
 
         selection my_selection = menu();

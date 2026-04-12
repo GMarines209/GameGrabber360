@@ -12,17 +12,18 @@
 #include "file_browser.h"
 #include "utils.h"
 #include "structs.h"
+#include "config.h"
 
 void move_folder(char* bestMatch, struct menu_selection my_selection, appContext *context_ptr){
         
-    char final_flag[256];
+    char final_flag[MAX_BUFFER];
     strcpy(final_flag, "/E /NDL /NJH /NJS /nc /BYTES /np"); 
 
-    char source_path[512];
+    char source_path[MAX_PATH_SIZE];
     if(my_selection.game_source == 2){
-        snprintf(source_path,sizeof(source_path), "E:\\1-Original Xbox games\\%s", bestMatch);
+        snprintf(source_path,sizeof(source_path), "E:\\1-Original Xbox games\\%s", bestMatch);      //HARDCODED
     } else {
-        snprintf(source_path,sizeof(source_path), "E:\\%s", bestMatch);
+        snprintf(source_path,sizeof(source_path), "E:\\%s", bestMatch);     //HARDCODED
     }
 
     long long total_bytes = get_dir_size(source_path);
@@ -33,17 +34,17 @@ void move_folder(char* bestMatch, struct menu_selection my_selection, appContext
         context_ptr->total_size += get_dir_size(source_path);
     }
 
-    char dest_path[256];
+    char dest_path[MAX_PATH_SIZE];
     strcpy(dest_path, my_selection.dest_Path);
 
-    char command[1024];
+    char command[2048];
     snprintf(command, sizeof(command), "robocopy \"%s\" \"%s\\%s\" %s", source_path, dest_path, bestMatch, final_flag);
 
     long long bytes_transferred = 0;
 
     //swithced to _popen instead of system() for real time command line updating for file progress display
     FILE *pipe = _popen(command, "r");
-    char buffer[256];
+    char buffer[MAX_BUFFER];
     
     while (fgets(buffer, sizeof(buffer), pipe) != NULL){
         
@@ -83,7 +84,7 @@ int search_repo(char* game_name, struct menu_selection my_selection, appContext 
     DIR *game_repo;
     struct dirent *entry;
 
-    char dest_path[256];
+    char dest_path[512];
     strcpy(dest_path,my_selection.dest_Path);
 
     //make case insensitive and remove new line
@@ -96,14 +97,14 @@ int search_repo(char* game_name, struct menu_selection my_selection, appContext 
     
     if(my_selection.game_source == 1){
 
-        game_repo = opendir("E:\\");
+        game_repo = opendir("E:\\"); //HARDCODED
         if (game_repo == NULL) {
             printf("Could not open E:\\ drive.\n");
             return 1;
         }
     }
     else{
-        game_repo = opendir("E:\\1-Original Xbox games");
+        game_repo = opendir("E:\\1-Original Xbox games"); //HARDCODED
         if (game_repo == NULL) {
             printf("Could not open E:\\original Xbox games drive.\n");
             return 1;
@@ -118,7 +119,7 @@ int search_repo(char* game_name, struct menu_selection my_selection, appContext 
     // loop through game repo and find file name matches
     while ((entry = readdir(game_repo)) != NULL)
     {
-        char lower_Dir_Name[256];
+        char lower_Dir_Name[MAX_PATH_SIZE];
         strncpy(lower_Dir_Name,entry->d_name,255);
         lower_Dir_Name[255] = '\0';
         to_lower_string(lower_Dir_Name);
@@ -149,16 +150,21 @@ int search_repo(char* game_name, struct menu_selection my_selection, appContext 
 
         if(context_ptr->skipped_games_log == NULL){
             // // Generate unique skipped filename
-            char filename[100];
+            char filename[MAX_BUFFER];
             time_t now = time(NULL);
             struct tm *t = localtime(&now);
             strftime(filename, sizeof(filename), "Skipped_%Y-%m-%d_%H%M%S.txt", t);
 
+            char full_path[MAX_BUFFER];
+            snprintf(full_path, sizeof(full_path), "C:\\Users\\Gabriel\\OneDrive\\Desktop\\Xbox stuff\\Client stuff\\%s", filename);
+            
+            //open the skipped games log file
             context_ptr->skipped_games_log = fopen(filename,"a");
         }
 
         if(context_ptr->skipped_games_log != NULL){
             fprintf(context_ptr->skipped_games_log,"%s\n",game_name);
+            fflush(context_ptr->skipped_games_log);
         }
 
         context_ptr->skipped++;
@@ -213,14 +219,14 @@ selection menu(){
     }
 
     my_selection.run_mode = choice;
+    
+    printf("\nWhat is the Destination Filepath? ");
     char* selected_path = PickFolder(NULL);
 
     switch (choice)
     {
     case 1:
-        printf("\nWhat is the Destination Filepath? ");
         
-
         if(selected_path == NULL){
             printf("\nSelection cancelled. Aborting program...\n");
             my_selection.game_source = -1;
@@ -229,8 +235,8 @@ selection menu(){
         }
         else{
         // Copy it into struct safely
-        strncpy(my_selection.dest_Path, selected_path, 255);
-        my_selection.dest_Path[255] = '\0'; 
+        strncpy(my_selection.dest_Path, selected_path, MAX_PATH_SIZE -1);
+        my_selection.dest_Path[MAX_PATH_SIZE -1] = '\0'; 
         
         free(selected_path); 
         break;
@@ -241,9 +247,7 @@ selection menu(){
         break;
 
     case 2:
-        printf("\nWhat is the Destination Filepath? ");
         
-
         if(selected_path == NULL){
             printf("\nSelection cancelled. Aborting program...\n");
             my_selection.game_source = -1;
@@ -252,8 +256,8 @@ selection menu(){
         }
         else{
         // Copy it into struct safely
-        strncpy(my_selection.dest_Path, selected_path, 255);
-        my_selection.dest_Path[255] = '\0'; 
+        strncpy(my_selection.dest_Path, selected_path, MAX_PATH_SIZE -1);
+        my_selection.dest_Path[MAX_PATH_SIZE -1] = '\0'; 
         
         free(selected_path); 
         break;
@@ -276,13 +280,14 @@ selection menu(){
 
 }
 
-
 int main() {
 
     SetConsoleOutputCP(65001);
 
+    //initilize struct
     appContext context;
 
+    //initilize context 
     context.transfered = 0;
     context.skipped = 0;
     context.total_count = 0;
@@ -291,7 +296,9 @@ int main() {
     context.go_again = 1;
 
     print_splash_screen();
-
+    load_settings();
+    
+        
     while(context.go_again == 1){
 
         selection my_selection = menu();
@@ -301,15 +308,15 @@ int main() {
 
         printf("\n");
         //open games list 
-        FILE *client_list_file = fopen("C:\\Users\\Gabriel\\OneDrive\\Desktop\\Xbox stuff\\Client stuff\\games.txt", "r");
+        FILE *client_list_file = fopen("C:\\Users\\Gabriel\\OneDrive\\Desktop\\Xbox stuff\\Client stuff\\games.txt", "r"); //HARDCODED
         
         if (client_list_file == NULL) {
             printf("File could not be opened.\n"); 
             return 1; 
         } else {
             time_t start_time = time(NULL);
-            char game_buffer[256]; 
-            while (fgets(game_buffer, 256, client_list_file) != NULL) {
+            char game_buffer[MAX_BUFFER]; 
+            while (fgets(game_buffer, MAX_BUFFER, client_list_file) != NULL) {
                 search_repo(game_buffer,my_selection,&context);
             }
 
@@ -329,7 +336,7 @@ int main() {
 
             printf("Time taken: %.2f seconds\n", time_spent);
 
-            printf("\nWould you like to go again? (1-yes/0-no) ");
+            printf("\nWould you like to go again? ([1]Yes/[0]No) ");
             scanf("%d",&context.go_again);
             while(context.go_again != 0 && context.go_again != 1 ){
                 printf("\nInvalid selection. Try again\n");

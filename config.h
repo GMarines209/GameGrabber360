@@ -4,7 +4,7 @@
 #include "structs.h"
 
 
-void load_settings();
+appConfig load_settings();
 appConfig first_time_setup();
 
 

@@ -14,24 +14,27 @@
 #include "structs.h"
 #include "config.h"
 
-void move_folder(char* bestMatch, struct menu_selection my_selection, appContext *context_ptr){
+void move_folder(char* bestMatch, struct menu_selection my_selection, appContext *context_ptr, appConfig *config_ptr){
         
     char final_flag[MAX_BUFFER];
     strcpy(final_flag, "/E /NDL /NJH /NJS /nc /BYTES /np"); 
 
+
+    //real run
     char source_path[MAX_PATH_SIZE];
     if(my_selection.game_source == 2){
-        snprintf(source_path,sizeof(source_path), "E:\\1-Original Xbox games\\%s", bestMatch);      //HARDCODED
+        snprintf(source_path,sizeof(source_path), "%s\\%s", config_ptr->game_repo_og,bestMatch);
     } else {
-        snprintf(source_path,sizeof(source_path), "E:\\%s", bestMatch);     //HARDCODED
+        snprintf(source_path,sizeof(source_path), "%s\\%s", config_ptr->game_repo_360,bestMatch);     //HARDCODED
     }
 
     long long total_bytes = get_dir_size(source_path);
 
+    //dry run
     if(my_selection.run_mode == 1){
         strcat(final_flag, " /L"); //L flag is for listing only / dry run
         
-        context_ptr->total_size += get_dir_size(source_path);
+        context_ptr->total_size += total_bytes;
     }
 
     char dest_path[MAX_PATH_SIZE];
@@ -78,7 +81,7 @@ void move_folder(char* bestMatch, struct menu_selection my_selection, appContext
     }       
 }
 
-int search_repo(char* game_name, struct menu_selection my_selection, appContext *context_ptr){
+int search_repo(char* game_name, struct menu_selection my_selection, appContext *context_ptr,appConfig *config_ptr){
     
     //init game repo directory
     DIR *game_repo;
@@ -97,16 +100,16 @@ int search_repo(char* game_name, struct menu_selection my_selection, appContext 
     
     if(my_selection.game_source == 1){
 
-        game_repo = opendir("E:\\"); //HARDCODED
+        game_repo = opendir(config_ptr->game_repo_360); //HARDCODED
         if (game_repo == NULL) {
-            printf("Could not open E:\\ drive.\n");
+            printf("Could not open %s\n",config_ptr->game_repo_360);
             return 1;
         }
     }
     else{
-        game_repo = opendir("E:\\1-Original Xbox games"); //HARDCODED
+        game_repo = opendir(config_ptr->game_repo_og); 
         if (game_repo == NULL) {
-            printf("Could not open E:\\original Xbox games drive.\n");
+            printf("Could not open %s\n",config_ptr->game_repo_og);
             return 1;
         }
     }
@@ -144,20 +147,18 @@ int search_repo(char* game_name, struct menu_selection my_selection, appContext 
     }   
 
     if(game.lev_distance < 999){
-        move_folder(game.dir_name,my_selection,context_ptr);
+        move_folder(game.dir_name,my_selection,context_ptr,config_ptr);
     }else{
         printf("\xe2\x9d\x8c Skipped (no match)\n"); // print cool chars
 
+        //if the skipped games log is empty
         if(context_ptr->skipped_games_log == NULL){
-            // // Generate unique skipped filename
+            // Generate unique skipped filename
             char filename[MAX_BUFFER];
             time_t now = time(NULL);
             struct tm *t = localtime(&now);
             strftime(filename, sizeof(filename), "Skipped_%Y-%m-%d_%H%M%S.txt", t);
 
-            char full_path[MAX_BUFFER];
-            snprintf(full_path, sizeof(full_path), "C:\\Users\\Gabriel\\OneDrive\\Desktop\\Xbox stuff\\Client stuff\\%s", filename);
-            
             //open the skipped games log file
             context_ptr->skipped_games_log = fopen(filename,"a");
         }
@@ -234,17 +235,14 @@ selection menu(){
             return my_selection;
         }
         else{
-        // Copy it into struct safely
-        strncpy(my_selection.dest_Path, selected_path, MAX_PATH_SIZE -1);
-        my_selection.dest_Path[MAX_PATH_SIZE -1] = '\0'; 
-        
-        free(selected_path); 
-        break;
+            // Copy it into struct safely
+            strncpy(my_selection.dest_Path, selected_path, MAX_PATH_SIZE -1);
+            my_selection.dest_Path[MAX_PATH_SIZE -1] = '\0'; 
+            
+            free(selected_path); 
+            my_selection.run_mode = 1;
+            break;
         }
-    
-
-        my_selection.run_mode = 1; //dry run
-        break;
 
     case 2:
         
@@ -255,18 +253,14 @@ selection menu(){
             return my_selection;
         }
         else{
-        // Copy it into struct safely
-        strncpy(my_selection.dest_Path, selected_path, MAX_PATH_SIZE -1);
-        my_selection.dest_Path[MAX_PATH_SIZE -1] = '\0'; 
-        
-        free(selected_path); 
-        break;
+            // Copy it into struct safely
+            strncpy(my_selection.dest_Path, selected_path, MAX_PATH_SIZE -1);
+            my_selection.dest_Path[MAX_PATH_SIZE -1] = '\0'; 
+            
+            free(selected_path); 
+            my_selection.run_mode = 2; //Full run
+            break;
         }
-    
-
-        my_selection.run_mode = 2; //Full run
-        break;
-
     case 3:
         my_selection.game_source = -1;
         my_selection.run_mode = -1;
@@ -284,7 +278,7 @@ int main() {
 
     SetConsoleOutputCP(65001);
 
-    //initilize struct
+    //initilize context struct
     appContext context;
 
     //initilize context 
@@ -296,7 +290,7 @@ int main() {
     context.go_again = 1;
 
     print_splash_screen();
-    load_settings();
+    appConfig my_config = load_settings();
     
         
     while(context.go_again == 1){
@@ -308,7 +302,7 @@ int main() {
 
         printf("\n");
         //open games list 
-        FILE *client_list_file = fopen("C:\\Users\\Gabriel\\OneDrive\\Desktop\\Xbox stuff\\Client stuff\\games.txt", "r"); //HARDCODED
+        FILE *client_list_file = fopen(my_config.games_list_path, "r"); 
         
         if (client_list_file == NULL) {
             printf("File could not be opened.\n"); 
@@ -317,7 +311,7 @@ int main() {
             time_t start_time = time(NULL);
             char game_buffer[MAX_BUFFER]; 
             while (fgets(game_buffer, MAX_BUFFER, client_list_file) != NULL) {
-                search_repo(game_buffer,my_selection,&context);
+                search_repo(game_buffer,my_selection,&context,&my_config);
             }
 
             printf("\n=== Summary ===\n");

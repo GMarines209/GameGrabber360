@@ -8,14 +8,15 @@
 #include "file_browser.h"
 
 
-void load_settings() {
+appConfig load_settings() {
     //open config file
     FILE *config = fopen("settings.ini","r");
 
     if (config == NULL){
-        first_time_setup();
-        return;
+        return first_time_setup();
     }
+
+    appConfig loaded_config = {0};
 
     char buffer[MAX_BUFFER];
     char curr_selection[MAX_PATH_SIZE];
@@ -25,7 +26,8 @@ void load_settings() {
         // trash it if its a comment etc
         if (buffer[0] == '#' || buffer[0] == '\n' || buffer[0] == ';') {
             continue; 
-        } //if its the start and end of a tag save it
+        } 
+        //if its the start and end of a tag save it
         else if(buffer[0] == '['){
             char* end_bracket = strchr(buffer, ']');
 
@@ -35,8 +37,35 @@ void load_settings() {
                 continue;
             }
         }
+        else{
+            char* equals = strchr(buffer,'=');
+            if(equals != NULL){
+                *equals = '\0';
+                char* new_line = strchr(equals+1,'\n');
+                if(new_line != NULL){
+                    *new_line = '\0';
+                }
+
+                if(strcmp(buffer,"Path360") == 0){
+                    strncpy(loaded_config.game_repo_360,equals+1,MAX_PATH_SIZE -1);
+                }
+                else if(strcmp(buffer,"PathOG") == 0){
+                    strncpy(loaded_config.game_repo_og,equals+1,MAX_PATH_SIZE -1);
+                }
+                else {
+                    strncpy(loaded_config.games_list_path,equals+1,MAX_PATH_SIZE -1);
+                }
+                
+                
+
+            }
+        }
 
     }
+
+    fclose(config);
+    return loaded_config;
+    
 }
 
 appConfig first_time_setup(){

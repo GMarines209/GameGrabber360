@@ -66,3 +66,64 @@ char* PickFolder(HWND owner) {
 
     return pszPathMultiByte;
 }
+
+char* PickFile(HWND owner) {
+    IFileDialog *pFileDialog = NULL;
+    IShellItem *pItem = NULL;
+    char *pszPathMultiByte = NULL; // holds the final char* path
+
+    // init COM
+    HRESULT hrInit = CoInitializeEx(NULL, COINIT_APARTMENTTHREADED | COINIT_DISABLE_OLE1DDE);
+
+    // Create the FileOpenDialog
+    HRESULT hr = CoCreateInstance(&CLSID_FileOpenDialog, NULL, CLSCTX_ALL, 
+                                  &IID_IFileDialog, (void**)(&pFileDialog));
+
+    if (SUCCEEDED(hr)) {
+
+        COMDLG_FILTERSPEC rgSpec[] = {
+            { L"Text Files (*.txt)", L"*.txt" },
+            { L"All Files (*.*)", L"*.*" }
+        };
+
+        IFileDialog_SetFileTypes(pFileDialog, 2, rgSpec);
+
+        DWORD dwOptions;
+        if (SUCCEEDED(IFileDialog_GetOptions(pFileDialog, &dwOptions))) {
+            IFileDialog_SetOptions(pFileDialog, dwOptions | FOS_FORCEFILESYSTEM | FOS_FILEMUSTEXIST);
+        }
+
+        if (SUCCEEDED(IFileDialog_Show(pFileDialog, owner))) {
+            if (SUCCEEDED(IFileDialog_GetResult(pFileDialog, &pItem))) {
+                PWSTR tempPathW;
+                
+                // Get the path as a Wide String (WCHAR)
+                if (SUCCEEDED(IShellItem_GetDisplayName(pItem, SIGDN_FILESYSPATH, &tempPathW))) {
+                    
+                    // --- CONVERSION LOGIC (WCHAR -> char)
+                    // 1. Calculate required size
+                    int size_needed = WideCharToMultiByte(CP_UTF8, 0, tempPathW, -1, NULL, 0, NULL, NULL);
+                    
+                    // 2. Allocate memory for standard char string
+                    pszPathMultiByte = (char*)malloc(size_needed);
+                    
+                    // 3. Convert
+                    if (pszPathMultiByte) {
+                        WideCharToMultiByte(CP_UTF8, 0, tempPathW, -1, pszPathMultiByte, size_needed, NULL, NULL);
+                    }
+
+                    CoTaskMemFree(tempPathW); // Free the Windows string
+                }
+                SafeRelease((IUnknown**)&pItem);
+            }
+        }
+        SafeRelease((IUnknown**)&pFileDialog);
+    }
+
+    if (SUCCEEDED(hrInit)) {
+        CoUninitialize();
+    }
+
+    return pszPathMultiByte;
+}
+

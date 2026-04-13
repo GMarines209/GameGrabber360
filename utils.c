@@ -7,6 +7,7 @@
 #include "utils.h"
 
 #define MIN(x, y, z) ((x) < (y) ? ((x) < (z) ? (x) : (z)) : ((y) < (z) ? (y) : (z)))
+#define MAX_PATH_SIZE 512
 
 
 void to_lower_string(char* str){
@@ -58,7 +59,7 @@ long long get_dir_size(char* path){
         if(strcmp(name, ".") == 0 || strcmp(name, "..") == 0){
             continue;
         }
-        char fullpath[256];
+        char fullpath[MAX_PATH_SIZE];
         snprintf(fullpath,sizeof(fullpath),"%s\\%s",path,name);
         size += get_dir_size(fullpath);
     }
@@ -108,8 +109,8 @@ void print_splash_screen(){
     printf("     / / __/ __ `/ __ `__ \\/ _ \\/ / __/ ___/ __ `/ __ \\/ __ \\/ _ \\/ ___/    /_ </ __ \\/ / / /\n");
     printf("    / /_/ / /_/ / / / / / /  __/ /_/ / /  / /_/ / /_/ / /_/ /  __/ /      ___/ / /_/ / /_/ / \n");
     printf("    \\____/\\__,_/_/ /_/ /_/\\___/\\____/_/   \\__,_/_.___/_.___/\\___/_/      /____/\\____/\\____/  \n");
+    printf("======================================================================================================\n");
 }
-
 
 
 

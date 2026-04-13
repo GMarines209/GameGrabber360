@@ -15,6 +15,7 @@ Once a match has been found, it establishes a Inter-Process Communication (IPC) 
 * **Memory Safe:** Uses bounded string manipulation (`snprintf`, `strncpy`) to prevent buffer overflows during path concatenation.
 * **IPC Data Parsing:** Replaces standard `system()` calls with `_popen` to maintain thread execution and parse external application memory streams in real-time.
 * **Windows API Integration:** Hooks directly into COM (`ole32`) for native GUI folder selection dialogs.
+* **Config file** Native config file parser/creator for orignal xbox, 360, and games list file paths
 
 ## Usage
 *Note: For now this tool requires a Windows environment (Windows 10/11) due to COM and Robocopy dependencies.*
@@ -24,6 +25,5 @@ Once a match has been found, it establishes a Inter-Process Communication (IPC) 
 3. Run `GameGrabber360.exe`. No installation is required.
 
 ## Future updates
-1. Linux compatabilityS
-2. Config file implementation
-3. implement with web based client terminal
+1. Linux compatability
+2. implement with web based client terminal

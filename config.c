@@ -115,7 +115,7 @@ appConfig first_time_setup(){
         fprintf(save_file, "[Directories]\n");
         fprintf(save_file, "Path360=%s\n", config.game_repo_360);
         fprintf(save_file, "PathOG=%s\n", config.game_repo_og);
-        fprintf(save_file, "ClientList=%s\n", config.games_list_path);
+        fprintf(save_file, "GAMESLIST=%s\n", config.games_list_path);
         
         // 3. Flush to disk and close
         fclose(save_file);

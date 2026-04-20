@@ -10,6 +10,8 @@ GameGrabber360 eliminates the manual searching. It reads a batch list of request
 
 Once a match has been found, it establishes a Inter-Process Communication (IPC) pipe to Windows `robocopy`, bypassing standard system-blocking calls to parse stdout and render a inline progress tracker in the terminal.
 
+Through a config file the program can be configured to unique repositories. other prefrences can be set such as always downloading dlc files (when available) to save on manual transfers
+
 ### Technical Highlights
 * **Pure Native C:** No third-party frameworks or heavy dependencies used. 
 * **Memory Safe:** Uses bounded string manipulation (`snprintf`, `strncpy`) to prevent buffer overflows during path concatenation.
@@ -27,3 +29,4 @@ Once a match has been found, it establishes a Inter-Process Communication (IPC) 
 ## Future updates
 1. Linux compatability
 2. implement with web based client terminal
+3. Free space validation before transfer

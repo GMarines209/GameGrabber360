@@ -14,71 +14,104 @@
 #include "structs.h"
 #include "config.h"
 
+int transfer_pipe(char* command, appContext *context_ptr, long long total_bytes, char* display_text) {
+    FILE *pipe = _popen(command, "r");
+    char buffer[MAX_BUFFER];
+    
+    while (fgets(buffer, sizeof(buffer), pipe) != NULL) {
+        long long file_bytes = 0;
+        
+        if (sscanf(buffer, "%lld", &file_bytes) == 1) {
+            context_ptr->bytes_transferred += file_bytes;
+            float progress = 0.0f;
+            
+            if (total_bytes > 0) {
+                progress = ((float)context_ptr->bytes_transferred / (float)total_bytes) * 100.0f;
+            }
+            
+            printf("\r%s ... %.1f%%", display_text, progress);
+            fflush(stdout);
+        }
+    }
+    
+    int exitCode = _pclose(pipe);
+    return exitCode;
+}
+
 void move_folder(char* bestMatch, struct menu_selection my_selection, appContext *context_ptr, appConfig *config_ptr){
         
     char final_flag[MAX_BUFFER];
     strcpy(final_flag, "/E /NDL /NJH /NJS /nc /BYTES /np"); 
 
+    
 
-    //real run
-    char source_path[MAX_PATH_SIZE];
-    if(my_selection.game_source == 2){
+    //full run
+    char source_path[MAX_PATH_SIZE * 2];
+    if(my_selection.game_source == 2){ //if its a orignal xbox game
         snprintf(source_path,sizeof(source_path), "%s\\%s", config_ptr->game_repo_og,bestMatch);
-    } else {
-        snprintf(source_path,sizeof(source_path), "%s\\%s", config_ptr->game_repo_360,bestMatch);     //HARDCODED
+    } else {//if its a xbox360 game
+        snprintf(source_path,sizeof(source_path), "%s\\%s", config_ptr->game_repo_360,bestMatch);    
     }
-
-    long long total_bytes = get_dir_size(source_path);
+    long long total_bytes;
+    total_bytes = get_dir_size(source_path);
 
     //dry run
     if(my_selection.run_mode == 1){
         strcat(final_flag, " /L"); //L flag is for listing only / dry run
-        
         context_ptr->total_size += total_bytes;
     }
 
     char dest_path[MAX_PATH_SIZE];
     strcpy(dest_path, my_selection.dest_Path);
 
-    char command[2048];
+    char command[MAX_COMMAND* 2];
     snprintf(command, sizeof(command), "robocopy \"%s\" \"%s\\%s\" %s", source_path, dest_path, bestMatch, final_flag);
 
-    long long bytes_transferred = 0;
+    char display_base[MAX_BUFFER];
+    snprintf(display_base, sizeof(display_base), "Transferring: %s", bestMatch);
 
-    //swithced to _popen instead of system() for real time command line updating for file progress display
-    FILE *pipe = _popen(command, "r");
-    char buffer[MAX_BUFFER];
-    
-    while (fgets(buffer, sizeof(buffer), pipe) != NULL){
-        
-        long long file_bytes = 0;
-        
-        if (sscanf(buffer, "%lld", &file_bytes) == 1) {
-            
-            bytes_transferred += file_bytes;
-            
-            float progress = 0.0f;
-            
-            if (total_bytes > 0) {
-                progress = ((float)bytes_transferred / (float)total_bytes) * 100.0f;
-            }
-            
-            printf("\rTransferring: %s... %.1f%%", bestMatch, progress);
-            fflush(stdout); 
-        }
-    }
-
-    int exitCode = _pclose(pipe);
+    int exitCode = transfer_pipe(command, context_ptr, total_bytes, display_base);
 
     if (exitCode >= 0 && exitCode < 8) {
         printf(" Complete \xe2\x9c\x94\n");
-        context_ptr->transfered++;
+        context_ptr->transferred++;
         context_ptr->total_count++;
     } else {
         printf(" Error (Code: %d).\n", exitCode);
         context_ptr->skipped++;
         context_ptr->total_count++;
-    }       
+    }
+
+    //if we need to load dlc
+    if(config_ptr->load_dlc == 1){       
+        char final_dlc_path[MAX_PATH_SIZE * 2];
+        snprintf(final_dlc_path,sizeof(final_dlc_path), "%s\\%s", config_ptr->dlc_path, bestMatch);
+
+        DIR* dlc_dir = opendir(final_dlc_path);
+        if(dlc_dir != NULL){
+            //close if it exits bc its not needed anymore
+            closedir(dlc_dir);
+
+            context_ptr->bytes_transferred = 0;
+            long long total_dlc_bytes = get_dir_size(final_dlc_path);
+
+            char dlc_command[MAX_COMMAND * 2];
+            snprintf(dlc_command, sizeof(dlc_command), "robocopy \"%s\" \"%s\" %s", final_dlc_path, dest_path, final_flag);
+
+            //costruct display text for the dlcs
+            char display_dlc[MAX_BUFFER];
+            snprintf(display_dlc, sizeof(display_dlc), "\t└─ transfering %s DLC:", bestMatch);
+
+            exitCode = transfer_pipe(dlc_command,context_ptr,total_dlc_bytes,display_dlc);
+
+            if (exitCode >= 0 && exitCode < 8) {
+                printf(" Complete \xe2\x9c\x94\n");
+            } else {
+                printf(" Error (Code: %d).\n", exitCode);
+            }
+        }
+    }
+    
 }
 
 int search_repo(char* game_name, struct menu_selection my_selection, appContext *context_ptr,appConfig *config_ptr){
@@ -100,7 +133,7 @@ int search_repo(char* game_name, struct menu_selection my_selection, appContext 
     
     if(my_selection.game_source == 1){
 
-        game_repo = opendir(config_ptr->game_repo_360); //HARDCODED
+        game_repo = opendir(config_ptr->game_repo_360); 
         if (game_repo == NULL) {
             printf("Could not open %s\n",config_ptr->game_repo_360);
             return 1;
@@ -148,6 +181,7 @@ int search_repo(char* game_name, struct menu_selection my_selection, appContext 
 
     if(game.lev_distance < 999){
         move_folder(game.dir_name,my_selection,context_ptr,config_ptr);
+        context_ptr->bytes_transferred = 0;// reset count after each game/dlc call
     }else{
         printf("\xe2\x9d\x8c Skipped (no match)\n"); // print cool chars
 
@@ -218,7 +252,7 @@ selection menu(){
         scanf("%d",&choice);
         while ((getchar()) != '\n');
     }
-
+    
     my_selection.run_mode = choice;
     
     printf("\nWhat is the Destination Filepath? ");
@@ -282,12 +316,13 @@ int main() {
     appContext context;
 
     //initilize context 
-    context.transfered = 0;
+    context.transferred = 0;
     context.skipped = 0;
     context.total_count = 0;
     context.total_size = 0;
     context.skipped_games_log = NULL;
     context.go_again = 1;
+    context.bytes_transferred = 0;
 
     print_splash_screen();
     appConfig my_config = load_settings();
@@ -315,7 +350,7 @@ int main() {
             }
 
             printf("\n=== Summary ===\n");
-            printf("Transferred: %d\n",context.transfered);
+            printf("Transferred: %d\n",context.transferred);
             printf("Skipped: %d\n",context.skipped);
             printf("Total: %d\n",context.total_count);
 
@@ -344,7 +379,7 @@ int main() {
         context.total_size = 0;
         context.skipped = 0;
         context.total_count = 0;
-        context.transfered = 0;
+        context.transferred = 0;
         printf("\n\n");
     }
 

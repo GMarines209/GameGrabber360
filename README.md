@@ -3,7 +3,7 @@
 A high-performance, native C utility made to automate bulk file transfers for Xbox 360 and Original Xbox game repositories. 
 
 ## The Problem
-For my xbox360 modding business i needed to manage bulk game installations across multiple storage drives wich typically required manually searching terabytes of unorganized directories to match client requests. This process was a massive time sink and was a perfect canidate for optimization.
+For my xbox360 modding business i needed to manage bulk game installations across multiple storage drives which typically required manually searching terabytes of unorganized directories to match client requests. This process was a massive time sink and was a perfect candidate for optimization.
 
 ## The Solution
 GameGrabber360 eliminates the manual searching. It reads a batch list of requested game titles, scans the target drive, and utilizes a custom **Levenshtein Distance algorithm** to determine the closest folder match (accounting for typos or naming variations). 

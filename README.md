@@ -26,6 +26,9 @@ Through a config file the program can be configured to unique repositories. othe
 2. Ensure you have a target text file (e.g., `games.txt`) with one requested title per line.
 3. Run `GameGrabber360.exe`. No installation is required.
 
+## Testing
+
+
 ## Future updates
 1. Linux compatability
 2. implement with web based client terminal

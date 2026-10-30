@@ -14,8 +14,22 @@
 #include "structs.h"
 #include "config.h"
 
+/*
+Features:
+    * Get time func that returns the time in min, hours etc
+    * print transfer to file option
+    * Validation script that confirms everythig transfered over good
+    * more prefrence options
+    * Oerwrite confirmation
+    * break up search_repo
+    * Make test cases
+FIX:
+
+*/
+
 int transfer_pipe(char* command, appContext *context_ptr, long long total_bytes, char* display_text) {
     FILE *pipe = _popen(command, "r");
+    if (pipe == NULL) return -1;
     char buffer[MAX_BUFFER];
     
     while (fgets(buffer, sizeof(buffer), pipe) != NULL) {
@@ -45,7 +59,7 @@ void move_folder(char* bestMatch, struct menu_selection my_selection, appContext
 
     
 
-    //full run
+    //full run flags
     char source_path[MAX_PATH_SIZE * 2];
     if(my_selection.game_source == 2){ //if its a orignal xbox game
         snprintf(source_path,sizeof(source_path), "%s\\%s", config_ptr->game_repo_og,bestMatch);
@@ -55,7 +69,7 @@ void move_folder(char* bestMatch, struct menu_selection my_selection, appContext
     long long total_bytes;
     total_bytes = get_dir_size(source_path);
 
-    //dry run
+    //dry run flags
     if(my_selection.run_mode == 1){
         strcat(final_flag, " /L"); //L flag is for listing only / dry run
         context_ptr->total_size += total_bytes;
@@ -83,7 +97,7 @@ void move_folder(char* bestMatch, struct menu_selection my_selection, appContext
     }
 
     //if we need to load dlc
-    if(config_ptr->load_dlc == 1){       
+    if(config_ptr->load_dlc == 1){
         char final_dlc_path[MAX_PATH_SIZE * 2];
         snprintf(final_dlc_path,sizeof(final_dlc_path), "%s\\%s", config_ptr->dlc_path, bestMatch);
 
@@ -94,10 +108,14 @@ void move_folder(char* bestMatch, struct menu_selection my_selection, appContext
 
             context_ptr->bytes_transferred = 0;
             long long total_dlc_bytes = get_dir_size(final_dlc_path);
+            context_ptr->total_size += total_dlc_bytes;
 
             char dlc_command[MAX_COMMAND * 2];
-            snprintf(dlc_command, sizeof(dlc_command), "robocopy \"%s\" \"%s\" %s", final_dlc_path, dest_path, final_flag);
-
+            size_t len = strlen(dest_path);
+            //snprintf(dlc_command, sizeof(dlc_command), "robocopy \"%s\" \"%s\" %s", final_dlc_path, dest_path, final_flag);
+            const char *suffix = (len > 0 && (dest_path[len - 1] == '\\' || dest_path[len - 1] == '/')) ? "." : "";
+            snprintf(dlc_command, sizeof(dlc_command), "robocopy \"%s\" \"%s%s\" %s", final_dlc_path, dest_path, suffix, final_flag);
+            
             //costruct display text for the dlcs
             char display_dlc[MAX_BUFFER];
             snprintf(display_dlc, sizeof(display_dlc), "\t└─ transfering %s DLC:", bestMatch);
@@ -151,10 +169,12 @@ int search_repo(char* game_name, struct menu_selection my_selection, appContext 
     //Init struct of game and set lev distance to max for comparison
     struct game_match game;
     game.lev_distance = 999;
-    
+
     // loop through game repo and find file name matches
     while ((entry = readdir(game_repo)) != NULL)
     {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0) continue;
+
         char lower_Dir_Name[MAX_PATH_SIZE];
         strncpy(lower_Dir_Name,entry->d_name,255);
         lower_Dir_Name[255] = '\0';
@@ -179,6 +199,9 @@ int search_repo(char* game_name, struct menu_selection my_selection, appContext 
         }
     }   
 
+
+
+    //                                                          relocate this 
     if(game.lev_distance < 999){
         move_folder(game.dir_name,my_selection,context_ptr,config_ptr);
         context_ptr->bytes_transferred = 0;// reset count after each game/dlc call
@@ -363,7 +386,18 @@ int main() {
             time_t end_time = time(NULL);
             double time_spent = difftime(end_time,start_time);
 
-            printf("Time taken: %.2f seconds\n", time_spent);
+            if(time_spent <= 60){
+                printf("Time taken: %.2f seconds\n", time_spent);
+            }
+            else{   
+                int time_spent_int = (int)time_spent;
+
+                int minutes = time_spent / 60;
+                int seconds = time_spent_int % 60;
+                printf("Time taken: %d minutes %d seconds\n", minutes,seconds);
+            }
+
+            
 
             printf("\nWould you like to go again? ([1]Yes/[0]No) ");
             scanf("%d",&context.go_again);

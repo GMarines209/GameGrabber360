@@ -5,6 +5,7 @@
 #include <ctype.h>
 #include <sys/stat.h> 
 #include "utils.h"
+#include <windows.h>
 
 #define MIN(x, y, z) ((x) < (y) ? ((x) < (z) ? (x) : (z)) : ((y) < (z) ? (y) : (z)))
 #define MAX_PATH_SIZE 512
@@ -113,4 +114,22 @@ void print_splash_screen(){
 }
 
 
+long long get_free_space(char* dest_Path) {
+    
+    ULARGE_INTEGER freeBytesAvailable;
+    ULARGE_INTEGER totalNumberOfBytes;
+    ULARGE_INTEGER totalNumberOfFreeBytes;
 
+    BOOL success = GetDiskFreeSpaceExA(
+        dest_Path,
+        &freeBytesAvailable,     // free space available
+        &totalNumberOfBytes,     // total size of the drive
+        &totalNumberOfFreeBytes  // total free space on the drive
+    );
+
+    if (!success) {
+        return -1; 
+    }
+
+    return (long long)freeBytesAvailable.QuadPart; 
+}

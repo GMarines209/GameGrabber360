@@ -3,20 +3,19 @@
 #include <string.h>
 #include <dirent.h>
 #include <windows.h>
-#include <ctype.h>
-#include <sys/stat.h>
 #include <time.h>
-#include <shobjidl.h> 
+// #include <ctype.h>
+// #include <sys/stat.h>
+// #include <shobjidl.h> 
+
 
 
 #include "file_browser.h"
 #include "utils.h"
 #include "structs.h"
 #include "config.h"
-
 /*
 Features:
-    * Get time func that returns the time in min, hours etc
     * print transfer to file option
     * Validation script that confirms everythig transfered over good
     * more prefrence options
@@ -164,11 +163,9 @@ int search_repo(char* game_name, struct menu_selection my_selection, appContext 
             return 1;
         }
     }
-    
 
-    //Init struct of game and set lev distance to max for comparison
-    struct game_match game;
-    game.lev_distance = 999;
+    struct game_match matches[3] = {0};
+    int match_count = 0;
 
     // loop through game repo and find file name matches
     while ((entry = readdir(game_repo)) != NULL)
@@ -180,6 +177,20 @@ int search_repo(char* game_name, struct menu_selection my_selection, appContext 
         lower_Dir_Name[255] = '\0';
         to_lower_string(lower_Dir_Name);
 
+
+        //check if number policy is valid
+        int valid = num_policy(game_name,entry->d_name);
+
+        if (valid == -1) {
+            fprintf(stderr, "Could not compare numbers for: %s\n",entry->d_name);
+            closedir(game_repo);
+            return 1;
+        }
+        else if(valid == 2){
+            continue; //  case 2 is a autoreject so try another game
+        }
+
+
         int dist = Lev_Distance(lower_Dir_Name,game_name);
         int len = strlen(game_name);
 
@@ -190,22 +201,60 @@ int search_repo(char* game_name, struct menu_selection my_selection, appContext 
 
         //loop and save best distance
         if (dist <= threshold) {
-
-            if(dist < game.lev_distance){
+            
+            // if its a new top contender
+            if(match_count == 0 || dist < matches[0].lev_distance){
+                // shift the elements down 1
+                matches[2] = matches[1]; // element 1 goes to 2
+                matches[1] = matches[0]; // element 0 goes to 1
+    
+                strcpy(matches[0].dir_name,entry->d_name); // element 0 gets set
+                matches[0].lev_distance = dist;
+                matches[0].number_policy = valid;
+            }
+            else if(match_count < 2 || dist < matches[1].lev_distance){
                 
-                game.lev_distance = dist;
-                strcpy(game.dir_name,entry->d_name);
+                matches[2] = matches[1]; 
+                
+                strcpy(matches[1].dir_name,entry->d_name); 
+                matches[1].lev_distance = dist;
+                matches[1].number_policy = valid;
+            }
+            else if(match_count < 3 ||dist < matches[2].lev_distance){
+                strcpy(matches[2].dir_name,entry->d_name); 
+                matches[2].lev_distance = dist;
+                matches[2].number_policy = valid;
+            }
+
+            if(match_count < 3){
+                match_count++;
             }
         }
     }   
 
+    if(match_count > 0){
+        
+        int tied = match_count >= 2 && matches[0].lev_distance == matches[1].lev_distance;
+        int review = matches[0].number_policy == 1 || tied;
 
+        if(review){
+            printf("Review required for \"%s\". Skipping transfer.\nPotential Replacements:\n",game_name);
 
-    //                                                          relocate this 
-    if(game.lev_distance < 999){
-        move_folder(game.dir_name,my_selection,context_ptr,config_ptr);
-        context_ptr->bytes_transferred = 0;// reset count after each game/dlc call
-    }else{
+            for (int i = 0; i < match_count; i++) {
+                printf("\t%d. %s | Distance: %d \n",
+                i + 1,
+                matches[i].dir_name,
+                matches[i].lev_distance);
+            }
+            context_ptr->skipped++;
+            context_ptr->total_count++;
+        }
+        else {
+        move_folder(matches[0].dir_name,my_selection, context_ptr, config_ptr);
+        context_ptr->bytes_transferred = 0;
+        }
+    } 
+    else{
         printf("\xe2\x9d\x8c Skipped (no match)\n"); // print cool chars
 
         //if the skipped games log is empty
@@ -369,7 +418,18 @@ int main() {
             time_t start_time = time(NULL);
             char game_buffer[MAX_BUFFER]; 
             while (fgets(game_buffer, MAX_BUFFER, client_list_file) != NULL) {
-                search_repo(game_buffer,my_selection,&context,&my_config);
+                int result = search_repo(game_buffer,my_selection,&context,&my_config);
+
+                if(result != 0){
+                    fprintf(stderr,"Search failed; Stopping run\n");
+                    fclose(client_list_file);
+
+                    if (context.skipped_games_log != NULL) {
+                        fclose(context.skipped_games_log);
+                        context.skipped_games_log = NULL;
+                    }
+                    return 1;
+                }
             }
 
             printf("\n=== Summary ===\n");

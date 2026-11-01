@@ -22,6 +22,7 @@ struct game_match
     int lev_distance;
     long long base_bytes;
     long long dlc_bytes;
+    int number_policy;
     float confidence; //unused
 };
 

@@ -104,6 +104,87 @@ int Lev_Distance(char* str1, char* str2){
 
 }
 
+int string_extraction(const char* str, char* nums, size_t capacity)
+{
+    if (str == NULL || nums == NULL || capacity == 0) {
+        return -1;
+    }
+
+    nums[0] = '\0';
+    size_t used = 0;
+    int count = 0;
+
+    while (*str != '\0') {
+        if (!isdigit((unsigned char)*str)) {
+            str++;
+            continue;
+        }
+
+        const char* start = str;
+
+        while (isdigit((unsigned char)*str)) {
+            str++;
+        }
+
+        size_t length = (size_t)(str - start);
+        size_t separator_length = count > 0 ? 2 : 0;
+        size_t available = capacity - used - 1;
+
+        if (separator_length > available) {
+            return -1;
+        }
+
+        available -= separator_length;
+
+        if (length > available) {
+            return -1;
+        }
+
+        if (count > 0) {
+            nums[used++] = ',';
+            nums[used++] = ' ';
+        }
+
+        for (size_t i = 0; i < length; i++) {
+            nums[used++] = start[i];
+        }
+
+        nums[used] = '\0';
+        count++;
+    }
+
+    return count;
+}
+
+int num_policy(char* target, char* candidate){
+
+    // -1 ~ error
+    // 0 ~ compatible ( halo -> halo , portal 2 -> portal 2)
+    // 1 ~ needs approval (halo -> halo 3, portal -> portal 2)
+    // 2 ~  rejection (halo 2 -> halo 3, gears 2 - > gears 3)
+    
+    char target_nums[MAX_PATH_SIZE] = {0};
+    char candidate_nums[MAX_PATH_SIZE] = {0};
+
+    int target_count = string_extraction(target,target_nums,sizeof(target_nums));
+    int candidate_count = string_extraction(candidate,candidate_nums,sizeof(candidate_nums));
+
+    if (target_count < 0 || candidate_count < 0) {
+        return -1;
+    }
+
+    if(strcmp(target_nums,candidate_nums) == 0){
+        return 0;
+    }
+
+    if (target_count == 1 && candidate_count == 1) {
+        return 2; 
+    }
+
+    // Added/missing numbers or a complicated mismatch  needs review
+    return 1;
+}
+
 void print_splash_screen(){
     printf("       ______                     ______           __    __                 _____ _____ ____ \n");
     printf("      / ____/___ _____ ___  ___  / ____/________ _/ /_  / /_  ___  _____   |__  // ___// __ \\\n");
@@ -112,7 +193,6 @@ void print_splash_screen(){
     printf("    \\____/\\__,_/_/ /_/ /_/\\___/\\____/_/   \\__,_/_.___/_.___/\\___/_/      /____/\\____/\\____/  \n");
     printf("======================================================================================================\n");
 }
-
 
 long long get_free_space(char* dest_Path) {
     
